@@ -1,0 +1,74 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2907
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red151\green151\blue149;\red235\green235\blue232;
+\red150\green150\blue149;\red233\green234\blue232;\red150\green150\blue149;\red234\green234\blue232;\red46\green208\blue56;
+}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;\cssrgb\c65663\c65660\c65007;\cssrgb\c93747\c93744\c92811;
+\cssrgb\c65313\c65312\c65068;\cssrgb\c93247\c93247\c92898;\cssrgb\c65454\c65453\c65045;\cssrgb\c93449\c93447\c92865;\cssrgb\c18575\c83319\c27953\c20000;
+}
+\paperw11900\paperh16840\margl1440\margr1440\vieww35140\viewh18300\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs28 \cf2 # GLOSSARY.md \'97 Done\
+\
+R\'e9f\'e9rence des noms officiels pour les outils, fonctionnalit\'e9s et \'e9l\'e9ments UI du projet. Utilis\'e9 de mani\'e8re coh\'e9rente dans les conversations, les specs, et les fichiers de bugs.\
+\
+## Canvas & Navigation\
+\
+- **Infinite Canvas** : la zone de travail principale, pannable et zoomable sans limite fixe, sur laquelle tous les \'e9l\'e9ments sont pos\'e9s.\
+- **Proportional Canvas** : comportement qui ajuste dynamiquement les marges/limites de d\'e9zoom en fonction de la zone r\'e9ellement occup\'e9e par le contenu, plut\'f4t qu'un espace infini fixe et disproportionn\'e9.\
+- **Cursor-anchored Zoom** : le zoom/d\'e9zoom se fait en gardant fixe le point du canvas sous le curseur, plut\'f4t que le centre de la fen\'eatre.\
+- **Fit to Screen** : action qui recadre automatiquement la vue pour englober tout le contenu du board \'e0 l'\'e9cran.\
+- **Grid Attach** : magn\'e9tisme qui aligne un \'e9l\'e9ment d\'e9plac\'e9 sur une grille en pointill\'e9s lorsque Shift est maintenu.\
+\
+## \'c9l\'e9ments UI\
+\
+- **Zoom Capsule** : l'indicateur flottant affichant le pourcentage de zoom actuel ; un double-clic dessus d\'e9clenche le Fit to Screen.\
+- **Floating Toolbar** : la barre d'outils flottante en bas de l'\'e9cran, avec ombre port\'e9e, donnant acc\'e8s aux outils de cr\'e9ation.\
+\pard\pardeftab720\partightenfactor0
+\cf2 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec3 - **\strokec4 Selection Tool\strokec3 **\strokec4  : le mode par d\'e9faut du canvas (clic/glisser/Marquee Selection habituels), actif tant qu'aucun outil de cr\'e9ation n'est arm\'e9 depuis la Floating Toolbar.\kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 - **Resize Handle** : le point de saisie unique (bas-droite) permettant de redimensionner un \'e9l\'e9ment s\'e9lectionn\'e9, \'e0 taille fixe quel que soit le zoom.\
+- **Selection Highlight** : le contour affich\'e9 autour d'un \'e9l\'e9ment s\'e9lectionn\'e9 sur le canvas.\
+- **Marquee Selection** : rectangle de s\'e9lection trac\'e9 par clic-glisser sur une zone vide du canvas, qui met en Selection Highlight tous les Nodes qu'il recouvre au rel\'e2chement.\
+\pard\pardeftab720\partightenfactor0
+\cf2 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec3 - **\strokec4 Crop-Resize\strokec3 **\strokec4  : \uc0\u8984 +glisser sur le Resize Handle d'un Image Node \'97 redimensionne le cadre visible sans changer l'\'e9chelle du contenu, r\'e9v\'e9lant ou masquant une partie de l'image.\kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec3 - **\strokec4 Crop Tool\strokec3 **\strokec4  : mode d'\'e9dition de recadrage activ\'e9 par double-clic sur un Image Node d\'e9j\'e0 s\'e9lectionn\'e9 \'97 affiche l'image source enti\'e8re, zone hors-cadre assombrie et flout\'e9e, 8 poign\'e9es (coins + bords), pan interne, grille des tiers pendant l'ajustement, validation via Cancel/Save.\
+
+\fs24 \strokec5 **\strokec6 Curve Handle\strokec5 **\strokec6  : la poign\'e9e positionn\'e9e sur le milieu visuel d'une Arrow Node, dont le gliss\'e9 courbe la fl\'e8che (B\'e9zier quadratique) ; un double-clic dessus r\'e9initialise la fl\'e8che en ligne droite.\
+\strokec5 - **\strokec6 Arrow Style Panel\strokec5 **\strokec6  : le panneau flottant apparaissant au-dessus d'une Arrow Node s\'e9lectionn\'e9e, permettant de r\'e9gler le style du trait (plein/pointill\'e9) et son \'e9paisseur.
+\fs28 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 \
+## \'c9l\'e9ments du canvas (Nodes)\
+\
+- **Node** : terme g\'e9n\'e9rique pour tout \'e9l\'e9ment pos\'e9 sur le canvas (texte, image, forme, etc.).\
+- **Text Note** : un node de texte libre, \'e9ditable, avec largeur redimensionnable.\
+- **Image Node** : un node contenant une image import\'e9e, redimensionnable (et \'e0 terme recadrable).\
+- **Caption Box** : la zone de texte qui s'accroche au bas d'une image pour la d\'e9crire, ajout\'e9e au double-clic.\
+\pard\pardeftab720\partightenfactor0
+\cf2 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec3  **\strokec4 Shape Node\strokec3 **\strokec4  : un node cr\'e9\'e9 via le Shape Tool (rectangle ou ellipse), avec texte int\'e9gr\'e9 \'e9ditable et un Resize Handle.\
+\strokec7 - **\strokec8 Arrow Node\strokec7 **\strokec8  : un node cr\'e9\'e9 via l'Arrow Tool \'97 une \cb9 \strokec8 courbe de B\'e9zier quadratique \cb1 \strokec8 entre deux points (startPoint/endPoint\cb9 \strokec8 , droite par d\'e9faut\cb1 \strokec8 ), t\'eate de fl\'e8che \'e0 endPoint uniquement\cb9 \strokec8  (orient\'e9e selon la tangente de la courbe)\cb1 \strokec8 , avec deux handles ind\'e9pendants par point \cb9 \strokec8 plus un Curve Handle, \cb1 \strokec8 plut\'f4t qu'un Resize Handle classique.\kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec7 - **\strokec8 Arrow Connection\strokec7 **\strokec8  : lien persistant entre le point A ou B d'une Arrow Node et le point A, B, ou Curve Handle d'une autre Arrow Node ; la fl\'e8che connect\'e9e suit automatiquement la position de sa cible si celle-ci bouge, formant une arborescence. Si la fl\'e8che cible est supprim\'e9e, le point connect\'e9 redevient libre \'e0 sa derni\'e8re position.
+\fs24 \strokec8 \
+\pard\pardeftab720\partightenfactor0
+
+\fs28 \cf2 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 ## Outils (roadmap)\
+\
+- **Shape Tool** : outil de cr\'e9ation de formes avec texte int\'e9gr\'e9.\
+- **Arrow Tool** : outil de cr\'e9ation de fl\'e8ches droites ou courbes, personnalisables (style, \'e9paisseur).\
+- **Color Palette Tool** : outil de s\'e9lection de couleur affich\'e9e en pastille ronde ou rectangle, avec bascule d'affichage RVB/HEX.\
+- **Drawing Tool** : outil de dessin libre avec 3 styles de stylo (Marker, Pastel, Pen).\
+- **Embed** : \'e9l\'e9ment int\'e9grant un lien hypertexte ou une vid\'e9o YouTube directement sur le canvas.\
+\
+## Stockage & Technique\
+\
+- **Document Package** : format de stockage d'un board \'97 un dossier contenant les donn\'e9es du board et un sous-dossier `assets/` pour les images.\
+- **Undo Stack** : historique d'actions annulables (cr\'e9er, d\'e9placer, redimensionner, supprimer) g\'e9r\'e9 via UndoManager.}

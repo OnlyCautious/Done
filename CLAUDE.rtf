@@ -1,0 +1,133 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2907
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww35140\viewh18300\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 \{\\rtf1\\ansi\\ansicpg1252\\cocoartf2870\
+\\cocoatextscaling0\\cocoaplatform0\{\\fonttbl\\f0\\froman\\fcharset0 Times-Bold;\\f1\\froman\\fcharset0 Times-Roman;\\f2\\fmodern\\fcharset0 Courier;\
+\\f3\\fnil\\fcharset0 LucidaGrande;\}\
+\{\\colortbl;\\red255\\green255\\blue255;\\red0\\green0\\blue0;\}\
+\{\\*\\expandedcolortbl;;\\cssrgb\\c0\\c0\\c0;\}\
+\{\\*\\listtable\{\\list\\listtemplateid1\\listhybrid\{\\listlevel\\levelnfc23\\levelnfcn23\\leveljc0\\leveljcn0\\levelfollow0\\levelstartat1\\levelspace360\\levelindent0\{\\*\\levelmarker \\\{disc\\\}\}\{\\leveltext\\leveltemplateid1\\'01\\uc0\\u8226 ;\}\{\\levelnumbers;\}\\fi-360\\li720\\lin720 \}\{\\listname ;\}\\listid1\}\
+\{\\list\\listtemplateid2\\listhybrid\{\\listlevel\\levelnfc23\\levelnfcn23\\leveljc0\\leveljcn0\\levelfollow0\\levelstartat1\\levelspace360\\levelindent0\{\\*\\levelmarker \\\{disc\\\}\}\{\\leveltext\\leveltemplateid101\\'01\\uc0\\u8226 ;\}\{\\levelnumbers;\}\\fi-360\\li720\\lin720 \}\{\\listname ;\}\\listid2\}\
+\{\\list\\listtemplateid3\\listhybrid\{\\listlevel\\levelnfc23\\levelnfcn23\\leveljc0\\leveljcn0\\levelfollow0\\levelstartat1\\levelspace360\\levelindent0\{\\*\\levelmarker \\\{disc\\\}\}\{\\leveltext\\leveltemplateid201\\'01\\uc0\\u8226 ;\}\{\\levelnumbers;\}\\fi-360\\li720\\lin720 \}\{\\listname ;\}\\listid3\}\
+\{\\list\\listtemplateid4\\listhybrid\{\\listlevel\\levelnfc23\\levelnfcn23\\leveljc0\\leveljcn0\\levelfollow0\\levelstartat1\\levelspace360\\levelindent0\{\\*\\levelmarker \\\{disc\\\}\}\{\\leveltext\\leveltemplateid301\\'01\\uc0\\u8226 ;\}\{\\levelnumbers;\}\\fi-360\\li720\\lin720 \}\{\\listname ;\}\\listid4\}\}\
+\{\\*\\listoverridetable\{\\listoverride\\listid1\\listoverridecount0\\ls1\}\{\\listoverride\\listid2\\listoverridecount0\\ls2\}\{\\listoverride\\listid3\\listoverridecount0\\ls3\}\{\\listoverride\\listid4\\listoverridecount0\\ls4\}\}\
+\\paperw11900\\paperh16840\\margl1440\\margr1440\\vieww35140\\viewh19020\\viewkind0\
+\\deftab720\
+\\pard\\pardeftab720\\sa321\\partightenfactor0\
+\
+\\f0\\b\\fs48 \\cf0 \\expnd0\\expndtw0\\kerning0\
+CLAUDE.md \\'97 Done\\\
+\\pard\\pardeftab720\\sa240\\partightenfactor0\
+\
+\\f1\\b0\\fs24 \\cf0 Instructions persistantes pour ce projet. Lu automatiquement au d\\'e9but de chaque session Claude Code.\\\
+\\pard\\pardeftab720\\sa298\\partightenfactor0\
+\
+\\f0\\b\\fs36 \\cf0 Le projet en une phrase\\\
+\\pard\\pardeftab720\\sa240\\partightenfactor0\
+\
+\\f1\\b0\\fs24 \\cf0 Done est une app macOS de whiteboard/moodboard cr\\'e9ative (inspir\\'e9e de Milanote), 100% locale, avec un canvas infini pour organiser des id\\'e9es de projets.\\\
+Pour le d\\'e9tail complet des fonctionnalit\\'e9s et de la roadmap : voir \
+\\f2\\fs26 SPEC.md\
+\\f1\\fs24 . Pour les bugs et corrections en cours : voir \
+\\f2\\fs26 BUGS.md\
+\\f1\\fs24 .\\\
+\\pard\\pardeftab720\\sa298\\partightenfactor0\
+\
+\\f0\\b\\fs36 \\cf0 Stack & architecture (d\\'e9cisions verrouill\\'e9es)\\\
+\\pard\\tx220\\tx720\\pardeftab720\\li720\\fi-720\\partightenfactor0\
+\\ls1\\ilvl0\
+\\fs24 \\cf0 \\kerning1\\expnd0\\expndtw0 \{\\listtext	\\uc0\\u8226 	\}\\expnd0\\expndtw0\\kerning0\
+SwiftUI\
+\\f1\\b0  uniquement pour l'app shell et les panneaux. Un \
+\\f2\\fs26 Canvas\
+\\f1\\fs24 /\
+\\f2\\fs26 NSView\
+\\f1\\fs24  custom pour le rendu du canvas infini si n\\'e9cessaire pour la performance \\'97 pas d'AppKit ailleurs sauf demande explicite.\\\
+\\ls1\\ilvl0\
+\\f0\\b \\kerning1\\expnd0\\expndtw0 \{\\listtext	\\uc0\\u8226 	\}\\expnd0\\expndtw0\\kerning0\
+SwiftData\
+\\f1\\b0  pour les m\\'e9tadonn\\'e9es (board, nodes, positions, connexions).\\\
+\\ls1\\ilvl0\
+\\f0\\b \\kerning1\\expnd0\\expndtw0 \{\\listtext	\\uc0\\u8226 	\}\\expnd0\\expndtw0\\kerning0\
+Assets (images) stock\\'e9s s\\'e9par\\'e9ment\
+\\f1\\b0  dans un dossier \
+\\f2\\fs26 assets/\
+\\f1\\fs24  \\'e0 l'int\\'e9rieur du document package du board, r\\'e9f\\'e9renc\\'e9s par chemin relatif \\'97 jamais en base64 ou embarqu\\'e9s dans SwiftData.\\\
+\\ls1\\ilvl0\
+\\f0\\b \\kerning1\\expnd0\\expndtw0 \{\\listtext	\\uc0\\u8226 	\}\\expnd0\\expndtw0\\kerning0\
+UndoManager\
+\\f1\\b0  : toute action (cr\\'e9er, d\\'e9placer, redimensionner, supprimer) doit \\'eatre undoable d\\'e8s son impl\\'e9mentation, pas ajout\\'e9 apr\\'e8s coup.\\\
+\\ls1\\ilvl0\
+\\f0\\b \\kerning1\\expnd0\\expndtw0 \{\\listtext	\\uc0\\u8226 	\}\\expnd0\\expndtw0\\kerning0\
+Handles UI\
+\\f1\\b0  (resize, s\\'e9lection) : toujours \\'e0 taille fixe \\'e0 l'\\'e9cran, jamais scal\\'e9s avec le zoom du canvas.\\\
+\\pard\\pardeftab720\\sa298\\partightenfactor0\
+\
+\\f0\\b\\fs36 \\cf0 Build & workflow\\\
+\\pard\\tx220\\tx720\\pardeftab720\\li720\\fi-720\\partightenfactor0\
+\\ls2\\ilvl0\
+\\f1\\b0\\fs24 \\cf0 \\kerning1\\expnd0\\expndtw0 \{\\listtext	\\uc0\\u8226 	\}\\expnd0\\expndtw0\\kerning0\
+Build via Xcode (\
+\\f3 \\uc0\\u8984 \
+\\f1 B), pas de commande CLI configur\\'e9e pour l'instant.\\\
+\\pard\\tx220\\tx720\\pardeftab720\\li720\\fi-720\\partightenfactor0\
+\\ls2\\ilvl0\
+\\f0\\b \\cf0 \\kerning1\\expnd0\\expndtw0 \{\\listtext	\\uc0\\u8226 	\}\\expnd0\\expndtw0\\kerning0\
+Committer apr\\'e8s chaque item/fonctionnalit\\'e9 termin\\'e9\
+\\f1\\b0 , jamais en un seul gros commit \\'e0 la fin.\\\
+\\pard\\tx220\\tx720\\pardeftab720\\li720\\fi-720\\partightenfactor0\
+\\ls2\\ilvl0\\cf0 \\kerning1\\expnd0\\expndtw0 \{\\listtext	\\uc0\\u8226 	\}\\expnd0\\expndtw0\\kerning0\
+Apr\\'e8s chaque item significatif, \
+\\f0\\b expliquer bri\\'e8vement ce qui a \\'e9t\\'e9 fait et pourquoi\
+\\f1\\b0  avant de passer au suivant.\\\
+\\ls2\\ilvl0\\kerning1\\expnd0\\expndtw0 \{\\listtext	\\uc0\\u8226 	\}\\expnd0\\expndtw0\\kerning0\
+Ne jamais impl\\'e9menter une fonctionnalit\\'e9 de la roadmap qui est hors du scope explicitement demand\\'e9 dans le prompt en cours.\\\
+\\pard\\pardeftab720\\sa298\\partightenfactor0\
+\
+\\f0\\b\\fs36 \\cf0 Conventions de code\\\
+\\pard\\tx220\\tx720\\pardeftab720\\li720\\fi-720\\partightenfactor0\
+\\ls3\\ilvl0\
+\\f1\\b0\\fs24 \\cf0 \\kerning1\\expnd0\\expndtw0 \{\\listtext	\\uc0\\u8226 	\}\\expnd0\\expndtw0\\kerning0\
+Noms de variables, commentaires et code en anglais (convention Swift standard), m\\'eame si les \\'e9changes avec l'utilisateur se font en fran\\'e7ais.\\\
+\\ls3\\ilvl0\\kerning1\\expnd0\\expndtw0 \{\\listtext	\\uc0\\u8226 	\}\\expnd0\\expndtw0\\kerning0\
+Un type de Node par fichier (\
+\\f2\\fs26 TextNote.swift\
+\\f1\\fs24 , \
+\\f2\\fs26 ImageNode.swift\
+\\f1\\fs24 , etc.) plut\\'f4t que tout regrouper dans un seul fichier de mod\\'e8les.\\\
+\\pard\\pardeftab720\\sa298\\partightenfactor0\
+\
+\\f0\\b\\fs36 \\cf0 Comportements UI \\'e0 respecter syst\\'e9matiquement\\\
+\\pard\\tx220\\tx720\\pardeftab720\\li720\\fi-720\\partightenfactor0\
+\\ls4\\ilvl0\
+\\f1\\b0\\fs24 \\cf0 \\kerning1\\expnd0\\expndtw0 \{\\listtext	\\uc0\\u8226 	\}\\expnd0\\expndtw0\\kerning0\
+Trackpad : pan au glissement 2 doigts, zoom au pincement (pas de scroll vertical pour zoomer).\\\
+\\ls4\\ilvl0\\kerning1\\expnd0\\expndtw0 \{\\listtext	\\uc0\\u8226 	\}\\expnd0\\expndtw0\\kerning0\
+Souris : pan au clic-molette + glisser.\\\
+\\ls4\\ilvl0\\kerning1\\expnd0\\expndtw0 \{\\listtext	\\uc0\\u8226 	\}\\expnd0\\expndtw0\\kerning0\
+Dark mode et light mode toujours support\\'e9s en parall\\'e8le, jamais l'un au d\\'e9triment de l'autre.\\\
+\\pard\\pardeftab720\\sa298\\partightenfactor0\
+\
+\\f0\\b\\fs36 \\cf0 Glossaire\\\
+\\pard\\pardeftab720\\sa240\\partightenfactor0\
+\
+\\f1\\b0\\fs24 \\cf0 Chaque nouvel outil, geste, ou \\'e9l\\'e9ment UI introduisant un concept nommable doit \\'eatre ajout\\'e9 \\'e0 \
+\\f2\\fs26 GLOSSARY.md\
+\\f1\\fs24  \\'e0 la racine du projet (nom en gras + description en une phrase), dans la section appropri\\'e9e, au moment o\\'f9 il est impl\\'e9ment\\'e9 \\'97 pas apr\\'e8s coup.\\\
+\\pard\\pardeftab720\\sa298\\partightenfactor0\
+\
+\\f0\\b\\fs36 \\cf0 Si une r\\'e8gle est apprise en cours de route\\\
+\\pard\\pardeftab720\\sa240\\partightenfactor0\
+\
+\\f1\\b0\\fs24 \\cf0 Si l'utilisateur corrige quelque chose qui devrait s'appliquer \\'e0 toutes les sessions futures, l'ajouter directement dans ce fichier plut\\'f4t que de le laisser seulement dans la conversation.\\\
+\\pard\\pardeftab720\\sa298\\partightenfactor0\
+\
+\\f0\\b\\fs36 \\cf0 Si l\\'92utilisateur utilise : ## Vague \\'93X\\'94\\\
+\\pard\\pardeftab720\\sa240\\partightenfactor0\
+\
+\\f1\\b0\\fs24 \\cf0 Si l'utilisateur utilise \\'93## Vague \\'93X\\'94 \\'93 introduire ce prompt dans BUGS.md (moyen de log les diff\\'e9rents patch pour garder en m\\'e9moire ce qui a \\'e9t\\'e9 fait)\\\
+ \}}

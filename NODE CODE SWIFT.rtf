@@ -1,0 +1,1493 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2907
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica-Bold;\f1\fswiss\fcharset0 Helvetica;\f2\fnil\fcharset0 .AppleSystemUIFontMonospaced-Regular;
+\f3\fnil\fcharset0 HelveticaNeue;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red96\green96\blue96;\red22\green37\blue21;
+\red233\green233\blue233;\red246\green110\blue36;\red149\green149\blue149;\red48\green211\blue59;\red16\green131\blue255;
+\red11\green11\blue11;\red251\green11\blue69;\red97\green97\blue96;\red236\green236\blue232;\red241\green104\blue29;
+\red151\green151\blue149;\red174\green133\blue255;\red27\green160\blue255;\red167\green125\blue255;}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;\cssrgb\c45098\c45098\c45098;\cssrgb\c10980\c18824\c10588;
+\cssrgb\c92941\c92941\c92941;\cssrgb\c98039\c51373\c18039;\cssrgb\c65098\c65098\c65098;\cssrgb\c19608\c84314\c29412\c20000;\cssrgb\c0\c60000\c100000;
+\cssrgb\c4314\c4314\c4314;\cssrgb\c100000\c17255\c33725;\cssrgb\c45584\c45582\c45015;\cssrgb\c93943\c93938\c92771;\cssrgb\c96435\c49121\c14571;
+\cssrgb\c65800\c65796\c64979;\cssrgb\c74211\c61486\c100000;\cssrgb\c8846\c69587\c100000;\cssrgb\c71765\c58824\c100000;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww35140\viewh18300\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\qc\partightenfactor0
+
+\f0\b\fs96 \cf2 ARROW NODE.SWIFT: code
+\f1\b0\fs28 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 \
+//\
+//  ArrowNode.swift\
+//  DONE\
+//\
+\
+import SwiftUI\
+import SwiftData\
+import AppKit\
+\
+/// Trait/thickness style (Phase 3 step 3/6) \'97 persisted directly on\
+/// BoardNode, same String-raw-value/Codable approach as ShapeType.\
+enum ArrowStrokeStyle: String, Codable, CaseIterable \{\
+    case solid\
+    case dashed\
+\}\
+\
+/// Arrow Tool (Phase 3, SPEC.md roadmap item 2). Step 1/6 laid the straight\
+/// line and startPoint/endPoint handles; step 2/6 added curving via a\
+/// quadratic B\'e9zier control point and its own Curve Handle; step 3/6 adds\
+/// stroke style (solid/dashed) and width via the Arrow Style Panel\
+/// (ArrowStylePanel.swift). Still no snap-to-other-Nodes/connections/text \'97\
+/// later steps.\
+///\
+/// Rendered by its own view rather than reusing NodeView: an arrow's\
+/// geometry is two independent endpoints (plus a curve control point), not\
+/// a rectangular frame with a single bottom-right Resize Handle, so the\
+/// interaction model (three handles, body-drag moving every point together)\
+/// doesn't fit NodeView's chrome. ContentView routes .arrow-kind nodes here\
+/// directly instead of through NodeView.\
+struct ArrowNodeView: View \{\
+    @Bindable var node: BoardNode\
+    var canvas: CanvasViewModel\
+    var onInteract: () -> Void\
+    /// Commits a group move (BUGS.md Vague 6 #1), same contract as\
+    /// NodeView's: applies `delta` to every currently-selected node in one\
+    /// step, as a single undo entry.\
+    var onGroupDragEnd: (CGSize) -> Void\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs24 \cf3 \cb4 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec3   /// Every node on the board, for Anchor Point candidate search (Phase 3\cf5 \cb4 \strokec5 \
+\cf3 \cb4 \strokec3     /// step 4/6) during handle A/B drags \'97 passed down from ContentView's\cf5 \cb4 \strokec5 \
+\cf3 \cb4 \strokec3     /// own @Query rather than queried again here.\cf5 \cb4 \strokec5 \
+\cf6 \cb4 \strokec6     var\cf5 \cb4 \strokec5  allNodes: \cf7 \strokec7 [\cf5 \strokec5 BoardNode\cf7 \strokec7 ]\cf5 \strokec5 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f1\fs28 \cf2 \cb1 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+\
+    @Environment(\\.modelContext) private var modelContext\
+\
+    // Live overrides during a drag, mirroring NodeView's liveResizeSize/\
+    // Origin pattern \'97 nil outside an active gesture, when display falls\
+    // back to the node's own committed points.\
+    @State private var liveStartPoint: CGPoint?\
+    @State private var liveEndPoint: CGPoint?\
+    @State private var liveControlPoint: CGPoint?\
+\
+    @State private var bodyDragStart: (start: CGPoint, end: CGPoint, control: CGPoint)?\
+    @State private var isGroupDragForThisGesture = false\
+    @State private var handleAStart: CGPoint?\
+    @State private var handleBStart: CGPoint?\
+\
+    private var isSelected: Bool \{ canvas.selectedNodeIDs.contains(node.id) \}\
+\
+    private var displayStart: CGPoint \{\
+        if let liveStartPoint \{ return liveStartPoint \}\
+        let base = CGPoint(x: node.arrowStartX, y: node.arrowStartY)\
+        if canvas.isGroupDragActive && isSelected \{\
+            return CGPoint(x: base.x + canvas.groupDragDelta.width, y: base.y + canvas.groupDragDelta.height)\
+        \}\
+        return base\
+    \}\
+\
+    private var displayEnd: CGPoint \{\
+        if let liveEndPoint \{ return liveEndPoint \}\
+        let base = CGPoint(x: node.arrowEndX, y: node.arrowEndY)\
+        if canvas.isGroupDragActive && isSelected \{\
+            return CGPoint(x: base.x + canvas.groupDragDelta.width, y: base.y + canvas.groupDragDelta.height)\
+        \}\
+        return base\
+    \}\
+\
+    /// The quadratic B\'e9zier control point (Phase 3 step 2/6) \'97 follows the\
+    /// same live-override/group-drag-follow pattern as displayStart/End, so\
+    /// the curve's shape stays consistent with the rest of the arrow while\
+    /// it's being dragged as part of a multi-select group.\
+    private var displayControl: CGPoint \{\
+        if let liveControlPoint \{ return liveControlPoint \}\
+        let base = CGPoint(x: node.arrowControlX, y: node.arrowControlY)\
+        if canvas.isGroupDragActive && isSelected \{\
+            return CGPoint(x: base.x + canvas.groupDragDelta.width, y: base.y + canvas.groupDragDelta.height)\
+        \}\
+        return base\
+    \}\
+\
+    // A modest margin around the three points' bounding box so the stroke\
+    // width, hit-test margin, and handle circles never sit flush against\
+    // the container's own edge \'97 SwiftUI doesn't clip a view's children to\
+    // its frame by default, so this is tidiness rather than correctness.\
+    private static let margin: CGFloat = 20\
+\
+    private static func boundingRect(start: CGPoint, end: CGPoint, control: CGPoint) -> CGRect \{\
+        let minX = min(start.x, end.x, control.x)\
+        let minY = min(start.y, end.y, control.y)\
+        let maxX = max(start.x, end.x, control.x)\
+        let maxY = max(start.y, end.y, control.y)\
+        return CGRect(\
+            x: minX - margin,\
+            y: minY - margin,\
+            width: maxX - minX + margin * 2,\
+            height: maxY - minY + margin * 2\
+        )\
+    \}\
+\
+    private static let hitTestLineWidth: CGFloat = 20\
+\
+    var body: some View \{\
+        let start = displayStart\
+        let end = displayEnd\
+        let control = displayControl\
+        let rect = Self.boundingRect(start: start, end: end, control: control)\
+        let localStart = CGPoint(x: start.x - rect.minX, y: start.y - rect.minY)\
+        let localEnd = CGPoint(x: end.x - rect.minX, y: end.y - rect.minY)\
+        let localControl = CGPoint(x: control.x - rect.minX, y: control.y - rect.minY)\
+        // strokeWidth/strokeStyle (Phase 3 step 3/6, Arrow Style Panel): the\
+        // arrowhead's own size always follows strokeWidth (a thicker line\
+        // gets a proportionally bigger head), and a dashed style's dash\
+        // pattern is sized off strokeWidth too rather than a fixed dash\
+        // length, so it stays proportioned at any thickness instead of\
+        // looking crowded on a thin line or vanishingly small on a thick one.\
+        let strokeWidth = CGFloat(node.arrowStrokeWidth)\
+        let (shaftPath, headPath) = Self.arrowPaths(from: localStart, control: localControl, to: localEnd, headLength: strokeWidth * 6)\
+        // Dash only applies to the shaft (Arrow Tool Vague 5 #1) \'97 the head\
+        // is always stroked solid, regardless of strokeStyle.\
+        let shaftStyle = StrokeStyle(\
+            lineWidth: strokeWidth,\
+            lineCap: .round,\
+            lineJoin: .round,\
+            dash: node.arrowStrokeStyle == .dashed ? [strokeWidth * 3, strokeWidth * 2.5] : []\
+        )\
+        let headStyle = StrokeStyle(lineWidth: strokeWidth, lineCap: .round, lineJoin: .round)\
+        // Only the halo/hit-test care about the whole arrow as one shape \'97\
+        // neither is ever dashed, so combining shaft+head back into one path\
+        // for those two purposes is safe. Built via an immediately-invoked\
+        // closure (not a bare `combinedPath.addPath(headPath)` statement)\
+        // since `body`'s implicit ViewBuilder would otherwise try to treat\
+        // that mutating call's Void result as a View.\
+        let combinedPath: Path = \{\
+            var path = shaftPath\
+            path.addPath(headPath)\
+            return path\
+        \}()\
+        // The visual midpoint of the curve (t=0.5) \'97 where the Curve Handle\
+        // is shown, not controlPoint itself, since that's more intuitive to\
+        // grab (it always sits right on the visible stroke).\
+        let localCurveMidpoint = Self.curveMidpoint(start: localStart, control: localControl, end: localEnd)\
+\
+        ZStack \{\
+            if isSelected \{\
+                combinedPath\
+                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: strokeWidth + 5, lineCap: .round, lineJoin: .round))\
+                    .opacity(0.35)\
+                    .allowsHitTesting(false)\
+            \}\
+            // Theme-adaptive (dark/light both supported).\
+            shaftPath\
+                .stroke(Color.primary, style: shaftStyle)\
+                .allowsHitTesting(false)\
+            headPath\
+                .stroke(Color.primary, style: headStyle)\
+                .allowsHitTesting(false)\
+\
+            // A fat invisible stroke as the hit-test region, fixed\
+            // regardless of strokeWidth \'97 even the thickest width the Arrow\
+            // Style Panel allows is still thinner than a comfortable click\
+            // target. Same reasoning as the explicit contentShape fix for\
+            // Image Node's hit-testing (BUGS.md Session 2 Vague 2 #3).\
+            Color.clear\
+                .contentShape(combinedPath.strokedPath(StrokeStyle(lineWidth: Self.hitTestLineWidth, lineCap: .round, lineJoin: .round)))\
+                .gesture(bodyDragGesture)\
+                .simultaneousGesture(singleTapGesture)\
+\
+            handleOverlay(at: localStart, isStart: true)\
+            handleOverlay(at: localEnd, isStart: false)\
+            if isSelected \{\
+                curveHandleOverlay(at: localCurveMidpoint)\
+            \}\
+        \}\
+        .frame(width: rect.width, height: rect.height)\
+        .offset(x: rect.minX, y: rect.minY)\
+    \}\
+\
+    // MARK: - Geometry\
+\
+    /// Quadratic B\'e9zier curve (straight when control sits at the segment's\
+    /// midpoint) plus an open chevron arrowhead at `end` only \'97 no head at\
+    /// `start`, per spec. The head's angle follows the curve's tangent at\
+    /// t=1 \'97 the direction of (end \uc0\u8722  control) \'97 rather than the raw\
+    /// (end \uc0\u8722  start) direction, so it visually points along the curve\
+    /// instead of "cutting the corner" on a curved arrow (Phase 3 step 2/6).\
+    /// On a straight arrow the two directions coincide (control is on the\
+    /// segment), so this doesn't change step 1/6's behavior at all.\
+    ///\
+    /// Returned as two separate paths, not one (Arrow Tool Vague 5 #1):\
+    /// `shaft` is the curve trimmed to stop where the head begins, meant to\
+    /// take strokeStyle's dash pattern; `head` is the chevron on its own,\
+    /// always meant to be stroked solid regardless of style \'97 a single\
+    /// combined path would apply one StrokeStyle to both, dashing the head\
+    /// right along with the shaft. `shaft` is trimmed (not just left running\
+    /// the full curve to `end` underneath a solid head drawn on top) so a\
+    /// dash's gap can't fall exactly at the tip and peek out from beside the\
+    /// head. The trim point is a first-order arc-length approximation: a\
+    /// quadratic B\'e9zier's speed at t=1 is 2|end\uc0\u8722 control|, so stepping back\
+    /// by `headLength` in arc length is approximately\
+    /// deltaT = headLength / (2|end\uc0\u8722 control|) \'97 exact closed-form arc-length\
+    /// parameterization doesn't exist for a B\'e9zier, but this is accurate\
+    /// enough for a trim of this size relative to a typical arrow's length.\
+    /// Points are in whatever local coordinate space the caller already\
+    /// converted to. `headLength` is the caller's responsibility (Phase 3\
+    /// step 3/6: tied to strokeWidth).\
+    private static func arrowPaths(from start: CGPoint, control: CGPoint, to end: CGPoint, headLength: CGFloat) -> (shaft: Path, head: Path) \{\
+        let angle = atan2(end.y - control.y, end.x - control.x)\
+        let headAngle: CGFloat = .pi / 7\
+        let left = CGPoint(x: end.x - headLength * cos(angle - headAngle), y: end.y - headLength * sin(angle - headAngle))\
+        let right = CGPoint(x: end.x - headLength * cos(angle + headAngle), y: end.y - headLength * sin(angle + headAngle))\
+        var head = Path()\
+        head.move(to: left)\
+        head.addLine(to: end)\
+        head.addLine(to: right)\
+\
+        let tangentSpeed = hypot(end.x - control.x, end.y - control.y) * 2\
+        let deltaT = tangentSpeed > 0 ? min(headLength / tangentSpeed, 1) : 0\
+        let t = max(1 - deltaT, 0)\
+        // De Casteljau split of [start, control, end] at t: the shaft is the\
+        // sub-curve from t=0 to t, a valid quadratic B\'e9zier in its own right\
+        // with control point q1 and endpoint shaftEnd \'97 both derived from\
+        // the same two lerps that give any point on the original curve.\
+        let q1 = CGPoint(x: start.x + (control.x - start.x) * t, y: start.y + (control.y - start.y) * t)\
+        let r1 = CGPoint(x: control.x + (end.x - control.x) * t, y: control.y + (end.y - control.y) * t)\
+        let shaftEnd = CGPoint(x: q1.x + (r1.x - q1.x) * t, y: q1.y + (r1.y - q1.y) * t)\
+\
+        var shaft = Path()\
+        shaft.move(to: start)\
+        shaft.addQuadCurve(to: shaftEnd, control: q1)\
+\
+        return (shaft, head)\
+    \}\
+\
+    /// The point ON the curve at t=0.5, for a quadratic B\'e9zier:\
+    /// 0.25\'b7start + 0.5\'b7control + 0.25\'b7end. This is what the Curve Handle\
+    /// displays at and drags from \'97 more intuitive than controlPoint itself,\
+    /// which generally sits *off* the visible curve once it's been dragged.\
+    private static func curveMidpoint(start: CGPoint, control: CGPoint, end: CGPoint) -> CGPoint \{\
+        CGPoint(\
+            x: 0.25 * start.x + 0.5 * control.x + 0.25 * end.x,\
+            y: 0.25 * start.y + 0.5 * control.y + 0.25 * end.y\
+        )\
+    \}\
+\
+    private static func midpoint(_ a: CGPoint, _ b: CGPoint) -> CGPoint \{\
+        CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)\
+    \}\
+\
+    /// Keeps x/y/width/height in sync as the two endpoints' bounding box\
+    /// after any single-node commit \'97 generic board-wide systems (Marquee\
+    /// Selection, Fit to Screen) read those, not the arrow-specific fields,\
+    /// so they'd otherwise go stale the moment an arrow moved or resized.\
+    /// Includes controlPoint (Phase 3 step 2/6): a curved arrow can visually\
+    /// bulge past the start/end segment's own bounding box, and Marquee\
+    /// Selection/Fit to Screen should cover the curve as it's actually\
+    /// drawn, not just its two endpoints.\
+    private func syncBoundingBox() \{\
+        let minX = min(node.arrowStartX, node.arrowEndX, node.arrowControlX)\
+        let minY = min(node.arrowStartY, node.arrowEndY, node.arrowControlY)\
+        let maxX = max(node.arrowStartX, node.arrowEndX, node.arrowControlX)\
+        let maxY = max(node.arrowStartY, node.arrowEndY, node.arrowControlY)\
+        node.x = minX\
+        node.y = minY\
+        node.width = maxX - minX\
+        node.height = maxY - minY\
+    \}\
+\
+    // MARK: - Selection\
+\
+    // Independent simultaneousGesture (not `.exclusively`) so a single tap\
+    // resolves immediately rather than waiting out the double-click\
+    // interval \'97 same reasoning as NodeView's own singleTapGesture\
+    // (BUGS.md #1). No double-tap behavior for arrows at this stage.\
+    private var singleTapGesture: some Gesture \{\
+        TapGesture(count: 1).onEnded \{\
+            onInteract()\
+            if NSEvent.modifierFlags.contains(.command) \{\
+                canvas.toggleSelection(node.id)\
+            \} else \{\
+                canvas.select(node.id)\
+            \}\
+        \}\
+    \}\
+\
+    // MARK: - Body drag (moves both points together)\
+\
+    /// Named coordinate space + explicit /canvas.scale, not .local (Arrow\
+    /// Tool Vague 1 #1): NodeView's own move gesture gets away with .local\
+    /// and a bare value.translation because it's attached directly to the\
+    /// node's own single top-level view. This gesture is instead attached to\
+    /// a Color.clear sibling nested inside this view's ZStack, and .local's\
+    /// automatic ancestor-scale compensation turned out not to hold there in\
+    /// practice \'97 the same category of failure already diagnosed once for\
+    /// the standard Resize Handle (BUGS.md Vague 9 #1), which is exactly why\
+    /// that one (and Arrow's own handleAGesture/handleBGesture right below)\
+    /// use this same named-space-plus-manual-division technique instead of\
+    /// trusting .local to do it automatically.\
+    private var bodyDragGesture: some Gesture \{\
+        DragGesture(minimumDistance: 2, coordinateSpace: .named(CanvasViewModel.viewportCoordinateSpaceName))\
+            .onChanged \{ value in\
+                if bodyDragStart == nil \{\
+                    bodyDragStart = (\
+                        CGPoint(x: node.arrowStartX, y: node.arrowStartY),\
+                        CGPoint(x: node.arrowEndX, y: node.arrowEndY),\
+                        CGPoint(x: node.arrowControlX, y: node.arrowControlY)\
+                    )\
+                    onInteract()\
+                    // Same rule as NodeView's move gesture (Vague 3/5): only\
+                    // a node already part of a multi-selection before this\
+                    // gesture began drags the whole group.\
+                    let wasAlreadyMultiSelected = isSelected && canvas.selectedNodeIDs.count > 1\
+                    isGroupDragForThisGesture = wasAlreadyMultiSelected\
+                    if !wasAlreadyMultiSelected \{\
+                        canvas.select(node.id)\
+                    \}\
+                \}\
+                guard let bodyDragStart else \{ return \}\
+                // Grid Attach (Arrow Tool Vague 1 #2): the delta that would\
+                // snap startPoint to the grid is applied identically to\
+                // endPoint too, so the two points move together and keep\
+                // their relative geometry \'97 same "one reference point's\
+                // delta, applied to every point being moved together" idea\
+                // as NodeView's own group-drag snap (Vague 6 #1), just with\
+                // this arrow's two points standing in for a group's members.\
+                let rawTranslation = Self.canvasTranslation(value, scale: canvas.scale)\
+                let translation = Self.isShiftHeld\
+                    ? GridAttach.snappedDelta(from: bodyDragStart.start, translation: rawTranslation)\
+                    : rawTranslation\
+                if isGroupDragForThisGesture \{\
+                    canvas.isGroupDragActive = true\
+                    canvas.groupDragDelta = translation\
+                \} else \{\
+                    liveStartPoint = CGPoint(x: bodyDragStart.start.x + translation.width, y: bodyDragStart.start.y + translation.height)\
+                    liveEndPoint = CGPoint(x: bodyDragStart.end.x + translation.width, y: bodyDragStart.end.y + translation.height)\
+                    // The curve's control point moves with the rest of the\
+                    // arrow during a whole-body drag, so its shape is kept\
+                    // (Phase 3 step 2/6) \'97 unlike handle A/B, which leave it\
+                    // in place.\
+                    liveControlPoint = CGPoint(x: bodyDragStart.control.x + translation.width, y: bodyDragStart.control.y + translation.height)\
+                \}\
+            \}\
+            .onEnded \{ value in\
+                guard let bodyDragStart else \{ return \}\
+                let rawTranslation = Self.canvasTranslation(value, scale: canvas.scale)\
+                let translation = Self.isShiftHeld\
+                    ? GridAttach.snappedDelta(from: bodyDragStart.start, translation: rawTranslation)\
+                    : rawTranslation\
+                if isGroupDragForThisGesture \{\
+                    onGroupDragEnd(translation)\
+                    canvas.isGroupDragActive = false\
+                    canvas.groupDragDelta = .zero\
+                \} else \{\
+                    node.arrowStartX = bodyDragStart.start.x + translation.width\
+                    node.arrowStartY = bodyDragStart.start.y + translation.height\
+                    node.arrowEndX = bodyDragStart.end.x + translation.width\
+                    node.arrowEndY = bodyDragStart.end.y + translation.height\
+                    node.arrowControlX = bodyDragStart.control.x + translation.width\
+                    node.arrowControlY = bodyDragStart.control.y + translation.height\
+                    syncBoundingBox()\
+                    try? modelContext.save()\
+                \}\
+                self.bodyDragStart = nil\
+                liveStartPoint = nil\
+                liveEndPoint = nil\
+                liveControlPoint = nil\
+                isGroupDragForThisGesture = false\
+            \}\
+    \}\
+\
+    // MARK: - Endpoint handles\
+\
+    // Fixed on-screen size regardless of zoom, same convention as the\
+    // standard Resize Handle (BUGS.md #6, CLAUDE.md).\
+    private var handleScreenDiameter: CGFloat \{ 10 \}\
+    private var handleScreenStrokeWidth: CGFloat \{ 1.5 \}\
+\
+    @ViewBuilder\
+    private func handleOverlay(at point: CGPoint, isStart: Bool) -> some View \{\
+        if isSelected \{\
+            Circle()\
+                .fill(Color(nsColor: .controlBackgroundColor))\
+                .overlay(Circle().stroke(Color.accentColor, lineWidth: handleScreenStrokeWidth / canvas.scale))\
+                .frame(width: handleScreenDiameter / canvas.scale, height: handleScreenDiameter / canvas.scale)\
+                .position(point)\
+                .gesture(isStart ? handleAGesture : handleBGesture)\
+        \}\
+    \}\
+\
+    // Named coordinate space (not .local): same reasoning as NodeView's\
+    // Resize Handle (BUGS.md Vague 9 #1) \'97 these handles sit nested inside\
+    // the canvas's pan/zoom transform, so the drag's screen-space\
+    // translation needs an explicit divide-by-scale to become a canvas-space\
+    // one; relying on .local to already account for the ancestor\
+    // .scaleEffect doesn't hold in practice.\
+    private static func translated(_ point: CGPoint, by value: DragGesture.Value, scale: CGFloat) -> CGPoint \{\
+        CGPoint(\
+            x: point.x + (value.location.x - value.startLocation.x) / scale,\
+            y: point.y + (value.location.y - value.startLocation.y) / scale\
+        )\
+    \}\
+\
+    /// Same conversion as `translated(_:by:scale:)`, as a translation\
+    /// (CGSize) rather than applied to a specific point \'97 used by\
+    /// bodyDragGesture, which moves two points by the same delta.\
+    private static func canvasTranslation(_ value: DragGesture.Value, scale: CGFloat) -> CGSize \{\
+        CGSize(\
+            width: (value.location.x - value.startLocation.x) / scale,\
+            height: (value.location.y - value.startLocation.y) / scale\
+        )\
+    \}\
+\
+    private static var isShiftHeld: Bool \{\
+        NSEvent.modifierFlags.contains(.shift)\
+    \}\
+\
+    /// Handle A: drags startPoint only: endPoint (and so the arrowhead,\
+    /// which always renders at the current end) stays put.\
+    ///\
+    /// Explicitly erased to AnyGesture (rather than `some Gesture`, as every\
+    /// other gesture in this file and NodeView is): handleOverlay picks\
+    /// between this and handleBGesture with a plain `isStart ? \'85 : \'85`\
+    /// ternary, and the Swift compiler won't treat two `some Gesture`-typed\
+    /// properties \'97 even structurally identical ones \'97 as the same type\
+    /// there, since each opaque return type is only known to be *some*\
+    /// Gesture, not statically which one.\
+    private var handleAGesture: AnyGesture<DragGesture.Value> \{\
+        AnyGesture(\
+            DragGesture(minimumDistance: 1, coordinateSpace: .named(CanvasViewModel.viewportCoordinateSpaceName))\
+                .onChanged \{ value in\
+                    if handleAStart == nil \{\
+                        handleAStart = CGPoint(x: node.arrowStartX, y: node.arrowStartY)\
+                        onInteract()\
+                    \}\
+                    guard let handleAStart else \{ return \}\
+                   
+\f2\fs24 \cf3 \cb4 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec3    // Grid Attach (Arrow Tool Vague 1 #2) \cb8 or Anchor Point\cf5 \cb4 \strokec5 \
+\pard\pardeftab720\partightenfactor0
+\cf3 \cb4 \strokec3                     // \cb8 snap (Phase 3 step 4/6, resolvedEndpoint gives Anchor\cf5 \cb4 \strokec5 \
+\cf3 \cb4 \strokec3                     // \cb8 Point priority) \'97 snaps this point alone, endPoint\cf5 \cb4 \strokec5 \
+\cf3 \cb4 \strokec3                     // isn't touched by this gesture at all, matching the\cf5 \cb4 \strokec5 \
+\cf3 \cb4 \strokec3                     // standard single-node move's own snap.
+\f1\fs28 \cf2 \cb1 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2                     let point = Self.translated(handleAStart, by: value, scale: canvas.scale)\
+                  
+\f2\fs24 \cf6 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec6 let\cf5 \strokec5  newStart \cf7 \strokec7 =\cf9 \strokec9  \cb8 resolvedEndpoint\cf7 \cb1 \strokec7 (\cf5 \strokec5 point\cf7 \strokec7 )
+\f1\fs28 \cf2 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+                    liveStartPoint = newStart\
+                    // Arrow Tool Vague 2: while the arrow is still straight,\
+                    // keep controlPoint pinned to the segment's midpoint on\
+                    // every frame, so repositioning A can't accidentally\
+                    // curve it \'97 the bug this whole isCurved flag exists to\
+                    // fix (controlPoint used to stay at its old absolute\
+                    // position while the segment's real midpoint moved out\
+                    // from under it).\
+                    if !node.isCurved \{\
+                        liveControlPoint = Self.midpoint(newStart, CGPoint(x: node.arrowEndX, y: node.arrowEndY))\
+                    \}\
+                \}\
+                .onEnded \{ value in\
+                    guard let handleAStart else \{ return \}\
+                    let point = Self.translated(handleAStart, by: value, scale: canvas.scale)\
+                   
+\f2\fs24 \cf6 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec6  let\cf5 \strokec5  newPoint \cf7 \strokec7 =\cf9 \strokec9  \cb8 resolvedEndpoint\cf7 \cb1 \strokec7 (\cf5 \strokec5 point\cf7 \strokec7 )
+\f1\fs28 \cf2 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+                
+\f2\fs24 \cf5 \cb10 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec5     node.arrowStartX \cf7 \cb10 \strokec7 =\cf5 \cb10 \strokec5  newPoint.x\
+\pard\pardeftab720\partightenfactor0
+\cf5                     node.arrowStartY \cf7 \cb10 \strokec7 =\cf5 \cb10 \strokec5  newPoint.y\
+\pard\pardeftab720\partightenfactor0
+\cf6 \cb10 \strokec6                     if\cf7 \strokec7  !\cf5 \cb10 \strokec5 node.isCurved \cf7 \cb10 \strokec7 \{\cf5 \cb10 \strokec5 \
+\pard\pardeftab720\partightenfactor0
+
+\f3 \cf5 \cb1 \strokec5 \
+\pard\pardeftab720\partightenfactor0
+
+\f2 \cf5 \cb10 \strokec5                     liveStartPoint \cf7 \cb10 \strokec7 =\cf11 \strokec11  nil\cf5 \cb10 \strokec5 \
+                    liveControlPoint \cf7 \cb10 \strokec7 =\cf11 \strokec11  nil\cf5 \cb10 \strokec5 \
+                    canvas.liveArrowGeometry \cf7 \cb10 \strokec7 =\cf11 \strokec11  nil\cf5 \cb10 \strokec5 \
+\pard\pardeftab720\partightenfactor0
+\cf5 \cb4 \strokec5                     canvas.anchorSnapState \cf7 \strokec7 =\cf11 \cb4 \strokec11  nil
+\f1\fs28 \cf2 \cb1 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2                 \}\
+        )\
+    \}\
+\
+    /// Handle B: drags endPoint only \'97 the arrowhead reorients live since\
+    /// its angle is always recomputed from the current start/end on every\
+    /// render. See handleAGesture's doc comment for why this is erased.\
+    private var handleBGesture: AnyGesture<DragGesture.Value> \{\
+        AnyGesture(\
+            DragGesture(minimumDistance: 1, coordinateSpace: .named(CanvasViewModel.viewportCoordinateSpaceName))\
+                .onChanged \{ value in\
+                    if handleBStart == nil \{\
+                        handleBStart = CGPoint(x: node.arrowEndX, y: node.arrowEndY)\
+                        onInteract()\
+                    \}\
+                    guard let handleBStart else \{ return \}\
+                    // Grid Attach (Arrow Tool Vague 1 #2): snaps this point\
+                    // alone \'97 startPoint isn't touched by this gesture.\
+                    let point = Self.translated(handleBStart, by: value, scale: canvas.scale)\
+                    let newEnd = Self.isShiftHeld ? GridAttach.snapped(point) : point\
+                    liveEndPoint = newEnd\
+                    // Arrow Tool Vague 2: see handleAGesture's matching\
+                    // comment \'97 same "pin to midpoint while straight" fix.\
+                    if !node.isCurved \{\
+                        liveControlPoint = Self.midpoint(CGPoint(x: node.arrowStartX, y: node.arrowStartY), newEnd)\
+                    \}\
+                \}\
+                .onEnded \{ value in\
+                    guard let handleBStart else \{ return \}\
+                    let point = Self.translated(handleBStart, by: value, scale: canvas.scale)\
+                    let newPoint = Self.isShiftHeld ? GridAttach.snapped(point) : point\
+                    node.arrowEndX = newPoint.x\
+                    node.arrowEndY = newPoint.y\
+                    if !node.isCurved \{\
+                        let mid = Self.midpoint(CGPoint(x: node.arrowStartX, y: node.arrowStartY), newPoint)\
+                        node.arrowControlX = mid.x\
+                        node.arrowControlY = mid.y\
+                    \}\
+                    syncBoundingBox()\
+                    try? modelContext.save()\
+                    self.handleBStart = nil\
+                    liveEndPoint = nil\
+                    liveControlPoint = nil\
+                \}\
+        )\
+    \}\
+\
+    // MARK: - Curve Handle\
+\
+    // Same fixed-on-screen-size convention as the endpoint handles.\
+    private var curveHandleScreenDiameter: CGFloat \{ 10 \}\
+    private var curveHandleScreenStrokeWidth: CGFloat \{ 1.5 \}\
+\
+    @State private var isDraggingCurveHandle = false\
+\
+    private func curveHandleOverlay(at point: CGPoint) -> some View \{\
+        Circle()\
+            .fill(Color(nsColor: .controlBackgroundColor))\
+            .overlay(Circle().stroke(Color.accentColor, lineWidth: curveHandleScreenStrokeWidth / canvas.scale))\
+            .frame(width: curveHandleScreenDiameter / canvas.scale, height: curveHandleScreenDiameter / canvas.scale)\
+            .position(point)\
+            .gesture(curveHandleDragGesture)\
+            .simultaneousGesture(curveHandleDoubleTapGesture)\
+    \}\
+\
+    /// Unlike every other gesture in this file, this maps the cursor\
+    /// directly to the target position rather than accumulating a delta\
+    /// from a captured start point \'97 per spec, the desired curveMidpoint\
+    /// *is* the cursor's canvas position on every frame, so there's no\
+    /// gesture-start reference to anchor or re-anchor at all: the 1:1\
+    /// precision the project's past Crop-Resize bugs had to fight for is\
+    /// automatic here since the mapping is direct.\
+    private var curveHandleDragGesture: some Gesture \{\
+        DragGesture(minimumDistance: 1, coordinateSpace: .named(CanvasViewModel.viewportCoordinateSpaceName))\
+            .onChanged \{ value in\
+                if !isDraggingCurveHandle \{\
+                    isDraggingCurveHandle = true\
+                    onInteract()\
+                \}\
+                let desiredCurveMidpoint = canvas.canvasPoint(fromScreen: value.location)\
+                liveControlPoint = Self.controlPoint(\
+                    forDesiredCurveMidpoint: desiredCurveMidpoint,\
+                    start: CGPoint(x: node.arrowStartX, y: node.arrowStartY),\
+                    end: CGPoint(x: node.arrowEndX, y: node.arrowEndY)\
+                )\
+            \}\
+            .onEnded \{ value in\
+                let desiredCurveMidpoint = canvas.canvasPoint(fromScreen: value.location)\
+                let newControl = Self.controlPoint(\
+                    forDesiredCurveMidpoint: desiredCurveMidpoint,\
+                    start: CGPoint(x: node.arrowStartX, y: node.arrowStartY),\
+                    end: CGPoint(x: node.arrowEndX, y: node.arrowEndY)\
+                )\
+                node.arrowControlX = newControl.x\
+                node.arrowControlY = newControl.y\
+                // Arrow Tool Vague 2: dragging the Curve Handle away from\
+                // the segment's midpoint is the one and only way an arrow\
+                // becomes curved \'97 this transition is one-way until an\
+                // explicit reset (double-click, below).\
+                node.isCurved = !Self.isApproximatelyMidpoint(\
+                    newControl,\
+                    start: CGPoint(x: node.arrowStartX, y: node.arrowStartY),\
+                    end: CGPoint(x: node.arrowEndX, y: node.arrowEndY)\
+                )\
+                try? modelContext.save()\
+                isDraggingCurveHandle = false\
+                liveControlPoint = nil\
+            \}\
+    \}\
+\
+    /// Inverts curveMidpoint = 0.25\'b7start + 0.5\'b7control + 0.25\'b7end for\
+    /// control, given a desired curveMidpoint and the arrow's current\
+    /// start/end.\
+    private static func controlPoint(forDesiredCurveMidpoint curveMidpoint: CGPoint, start: CGPoint, end: CGPoint) -> CGPoint \{\
+        CGPoint(\
+            x: 2 * curveMidpoint.x - 0.5 * (start.x + end.x),\
+            y: 2 * curveMidpoint.y - 0.5 * (start.y + end.y)\
+        )\
+    \}\
+\
+    /// Whether `control` is (near enough to) the segment's midpoint that the\
+    /// arrow still reads as straight \'97 a tiny tolerance rather than exact\
+    /// equality, since floating-point drag math essentially never lands on\
+    /// the midpoint exactly even when the user's intent was "don't curve\
+    /// this."\
+    private static func isApproximatelyMidpoint(_ control: CGPoint, start: CGPoint, end: CGPoint) -> Bool \{\
+        let mid = midpoint(start, end)\
+        let dx = control.x - mid.x\
+        let dy = control.y - mid.y\
+        return (dx * dx + dy * dy) < 0.25\
+    \}\
+\
+    /// Double-click on the Curve Handle resets the arrow to a straight line\
+    /// (GLOSSARY.md's Curve Handle entry) \'97 a single, ordinarily-registered\
+    /// undo step, same as every other discrete (non-continuous-drag) commit\
+    /// in this file.\
+    private var curveHandleDoubleTapGesture: some Gesture \{\
+        TapGesture(count: 2).onEnded \{\
+            onInteract()\
+            node.arrowControlX = (node.arrowStartX + node.arrowEndX) / 2\
+            node.arrowControlY = (node.arrowStartY + node.arrowEndY) / 2\
+            // Arrow Tool Vague 2: a full reset to "straight," not just a\
+            // one-off visual snap-back \'97 isCurved must go false too, so a\
+            // later handle A/B or body drag pins controlPoint back to the\
+            // midpoint again instead of treating this as still curved.\
+            node.isCurved = false\
+            try? modelContext.save()\
+        \}\
+    \}\
+\}\
+\
+\
+\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\qc\partightenfactor0
+
+\f0\b\fs72 \cf2 BOARD NODE.SWIFT: code
+\f1\b0\fs28 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 \
+//\
+//  BoardNode.swift\
+//  DONE\
+//\
+\
+import Foundation\
+import SwiftData\
+\
+enum BoardNodeKind: String, Codable \{\
+    case text\
+    case image\
+    case shape\
+    case arrow\
+\}\
+\
+/// A single item on the board. Rather than a class hierarchy per node type (as\
+/// sketched in the early data model notes), this uses one SwiftData model with a\
+/// `kind` discriminator and per-kind optional fields \'97 SwiftData's support for\
+/// polymorphic @Model hierarchies is still rough, and a flat model is simpler to\
+/// query/sort by zIndex across all node types on the board.\
+@Model\
+final class BoardNode \{\
+    var id: UUID\
+    var kind: BoardNodeKind\
+    var x: Double\
+    var y: Double\
+    var width: Double\
+    var height: Double\
+    var zIndex: Int\
+    var createdAt: Date\
+\
+    // Text notes\
+    var text: String\
+\
+    // Image nodes. sourceWidth/sourceHeight are the imported image's native\
+    // pixel dimensions \'97 fixed at import, never modified afterwards. They\
+    // replace the old `aspectRatio: Double?` (which was written at import\
+    // but never actually read anywhere \'97 confirmed while diagnosing BUGS.md\
+    // Session 2 Vague 3): a bare ratio can't anchor a single content scale\
+    // the way the true native size can.\
+    var assetRelativePath: String?\
+    var sourceWidth: Double = 1\
+    var sourceHeight: Double = 1\
+\
+    // contentScale (Session 2 Vague 3): the *single* scale factor applied to\
+    // the source image \'97 canvas points per source pixel. Recomputed by\
+    // Crop-Resize via the "cover" formula\
+    // (max(width/sourceWidth, height/sourceHeight)) so the image is always\
+    // scaled uniformly, never stretched independently on X/Y. Previously\
+    // there was no such field: fullWidth/fullHeight were re-derived\
+    // independently per axis from width/cropWidth and height/cropHeight in\
+    // three different places, with nothing enforcing that the two stayed in\
+    // proportion to the source's real aspect ratio \'97 the root cause of the\
+    // Crop-Resize deformation bug.\
+    var contentScale: Double = 1\
+\
+    // Crop-Resize / Crop Tool (Vague 10 #3, #4) \'97 the visible window into the\
+    // full imported image at its current contentScale, normalized (0...1) as\
+    // a fraction of sourceWidth*contentScale / sourceHeight*contentScale.\
+    // (0, 0, 1, 1) \'97 the default \'97 means uncropped, the whole image visible.\
+    // Crop-Resize now recomputes these to keep the window centered and\
+    // exactly matching the frame (the "cover" crop) every time contentScale\
+    // changes; the Crop Tool pans/resizes this window on its own within a\
+    // fixed contentScale instead. See ImageNodeContentView and NodeView's\
+    // Crop-Resize gesture.\
+    var cropX: Double = 0\
+    var cropY: Double = 0\
+    var cropWidth: Double = 1\
+    var cropHeight: Double = 1\
+\
+    // Shape nodes (Phase 2) \'97 reuses `text` above for the embedded text.\
+    var shapeType: ShapeType?\
+\
+    // Arrow nodes (Phase 3, step 1/6 \'97 foundations only: straight line, no\
+    // curve/style/snap/connections/text yet, see BUGS.md). An arrow's\
+    // geometry is these two points, not the classic position/size \'97 x/y/\
+    // width/height are still kept in sync as the pair's bounding box purely\
+    // so generic board-wide systems that assume every node has one\
+    // (Marquee Selection, Fit to Screen's content bounds, group drag) work\
+    // for arrows without special-casing each of them individually; they are\
+    // never the source of truth for an arrow's own rendering.\
+    var arrowStartX: Double = 0\
+    var arrowStartY: Double = 0\
+    var arrowEndX: Double = 0\
+    var arrowEndY: Double = 0\
+\
+    // Arrow curve (Phase 3 step 2/6, revised step 2 Vague 1): the quadratic\
+    // B\'e9zier control point, initialized to the segment's midpoint at\
+    // creation (== a visually straight line, since a quadratic B\'e9zier with\
+    // its control point at the segment's midpoint degenerates to that\
+    // segment).\
+    var arrowControlX: Double = 0\
+    var arrowControlY: Double = 0\
+\
+    // Explicit curved/straight state (Arrow Tool Vague 2, replacing step\
+    // 2/6's original "curvature is just whatever position controlPoint\
+    // happens to be at" design): as long as this is false, controlPoint is\
+    // recomputed to the segment's midpoint on every handle A/B or body-drag\
+    // frame, so a straight arrow can be freely repositioned without ever\
+    // accidentally acquiring a curve \'97 the bug that design produced, since\
+    // controlPoint stayed at its old absolute position while the segment's\
+    // real midpoint moved out from under it. Only dragging the Curve Handle\
+    // itself sets this to true; only double-clicking the Curve Handle resets\
+    // it back to false (along with controlPoint itself).\
+    var isCurved: Bool = false\
+\
+    // Arrow style (Phase 3 step 3/6): defaults match the values hard-coded\
+    // since step 1/6 (solid, 2pt), so existing arrows look identical until\
+    // the Arrow Style Panel is actually touched.\
+    //\
+    // arrowStrokeStyle is Optional (Arrow Tool Vague 4), not a non-optional\
+    // property with an inline default \'97 that crashed on every board created\
+    // before this step (SIGABRT in the generated getValue(forKey:)\
+    // accessor). Every *other* non-optional property added incrementally to\
+    // this model (isCurved: Bool, arrowControlX/Y: Double, contentScale:\
+    // Double, ...) is a primitive type SQLite/Core Data stores natively, so\
+    // lightweight migration backfills their default trivially at the column\
+    // level. arrowStrokeStyle was the first non-optional *custom enum* added\
+    // \'97 SwiftData/Core Data's automatic lightweight migration doesn't\
+    // reliably encode a concrete default for a transformable/custom-type\
+    // attribute into rows that predate the property, and the generated\
+    // accessor had nothing to fall back to at read time. shapeType: ShapeType?\
+    // already proved the optional-custom-enum path migrates cleanly (added\
+    // in Phase 2, never an issue) since nil needs no encoding at all \'97 so\
+    // this property now follows that same proven shape, with nil treated as\
+    // .solid at every read site instead of asking SwiftData to backfill a\
+    // real value.\
+    var arrowStrokeStyle: ArrowStrokeStyle?\
+    var arrowStrokeWidth: Double = 2\
+\
+    init(\
+        id: UUID = UUID(),\
+        kind: BoardNodeKind,\
+        x: Double,\
+        y: Double,\
+        width: Double,\
+        height: Double,\
+        zIndex: Int,\
+        text: String = "",\
+        assetRelativePath: String? = nil,\
+        sourceWidth: Double = 1,\
+        sourceHeight: Double = 1,\
+        contentScale: Double = 1,\
+        shapeType: ShapeType? = nil,\
+        arrowStartX: Double = 0,\
+        arrowStartY: Double = 0,\
+        arrowEndX: Double = 0,\
+        arrowEndY: Double = 0,\
+        arrowControlX: Double = 0,\
+        arrowControlY: Double = 0\
+    ) \{\
+        self.id = id\
+        self.kind = kind\
+        self.x = x\
+        self.y = y\
+        self.width = width\
+        self.height = height\
+        self.zIndex = zIndex\
+        self.createdAt = Date()\
+        self.text = text\
+        self.assetRelativePath = assetRelativePath\
+        self.sourceWidth = sourceWidth\
+        self.sourceHeight = sourceHeight\
+        self.contentScale = contentScale\
+        self.shapeType = shapeType\
+        self.arrowStartX = arrowStartX\
+        self.arrowStartY = arrowStartY\
+        self.arrowEndX = arrowEndX\
+        self.arrowEndY = arrowEndY\
+        self.arrowControlX = arrowControlX\
+        self.arrowControlY = arrowControlY\
+    \}\
+\}\
+\
+\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\qc\partightenfactor0
+
+\f0\b\fs96 \cf2 \ul \ulc2 ARROW STYLE PANEL.SWIFT CODE:
+\f1\b0\fs28 \ulnone \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 \
+//\
+//  ArrowStylePanel.swift\
+//  DONE\
+//\
+\
+import SwiftUI\
+import SwiftData\
+\
+/// Arrow Style Panel (Phase 3 step 3/6, GLOSSARY.md): a small floating\
+/// panel, shown whenever the selection consists entirely of one or more\
+/// Arrow Nodes, for controlling stroke style (solid/dashed) and width.\
+/// ContentView computes its position (above the selection's bounding box,\
+/// flipping below if too close to the canvas viewport's top edge) and\
+/// passes in exactly the arrow nodes it applies to.\
+struct ArrowStylePanel: View \{\
+    /// The selected Arrow Nodes this panel edits \'97 always non-empty and\
+    /// entirely .arrow-kind; ContentView only instantiates this view when\
+    /// that holds.\
+    var arrows: [BoardNode]\
+\
+    @Environment(\\.modelContext) private var modelContext\
+\
+    // Continuous-drag undo grouping (same convention as TextNoteContentView/\
+    // ShapeNodeContentView's autosave and NodeView's Crop-Resize): only the\
+    // first width change of a single slider drag registers with the undo\
+    // manager, so undoing the whole drag is one step rather than one per\
+    // pixel \'97 see widthBinding below.\
+    @State private var hasRegisteredWidthUndoThisSession = false\
+\
+    private static let widthRange: ClosedRange<Double> = 1...12\
+\
+    /// nil when the selected arrows don't all share the same style/width \'97\
+    /// shown as an indeterminate/neutral state (neither style button\
+    /// highlighted; "\'97" instead of a specific width) rather than picking one\
+    /// arbitrarily, per spec.\
+    private var commonStyle: ArrowStrokeStyle? \{\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs24 \cf2 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec12    // nil (arrows persisted before this step existed) reads as .solid,\strokec13 \
+\strokec12         // matching every other read site's fallback \'97 see arrowStrokeStyle's\strokec13 \
+\strokec12         // own doc comment on BoardNode for why the field is Optional at all.\strokec13 \
+\strokec14         let\strokec13  styles \strokec15 =\strokec16  Set\strokec15 (\strokec13 arrows.\strokec17 map\strokec15  \{\strokec13  $0.arrowStrokeStyle \strokec15 ??\strokec13  .solid \strokec15 \})\strokec13 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f1\fs28 \cf2 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+        return styles.count == 1 ? styles.first : nil\
+    \}\
+\
+    private var commonWidth: Double? \{\
+        let widths = Set(arrows.map(\\.arrowStrokeWidth))\
+        return widths.count == 1 ? widths.first : nil\
+    \}\
+\
+    /// A Slider always needs one concrete Double to position its thumb at \'97\
+    /// there's no native "indeterminate" thumb position \'97 so a mixed\
+    /// selection falls back to the average width as a neutral starting\
+    /// point rather than an arbitrary single arrow's value. The visible\
+    /// label still reads "\'97" in that case (see body) so the average isn't\
+    /// mistaken for an actual shared value.\
+    private var averageWidth: Double \{\
+        guard !arrows.isEmpty else \{ return 2 \}\
+        return arrows.map(\\.arrowStrokeWidth).reduce(0, +) / Double(arrows.count)\
+    \}\
+\
+    var body: some View \{\
+        HStack(spacing: 12) \{\
+            styleControl\
+            Divider().frame(height: 16)\
+            widthControl\
+        \}\
+        .padding(.horizontal, 12)\
+        .padding(.vertical, 8)\
+        .background(.regularMaterial, in: Capsule())\
+        .shadow(color: .black.opacity(0.15), radius: 8, y: 2)\
+    \}\
+\
+    private var styleControl: some View \{\
+        HStack(spacing: 4) \{\
+            styleButton(.solid, label: "Plein")\
+            styleButton(.dashed, label: "Pointill\'e9")\
+        \}\
+    \}\
+\
+    private func styleButton(_ style: ArrowStrokeStyle, label: String) -> some View \{\
+        let isActive = commonStyle == style\
+        return Button(label) \{\
+            for arrow in arrows \{ arrow.arrowStrokeStyle = style \}\
+            try? modelContext.save()\
+        \}\
+        .buttonStyle(.plain)\
+        .font(.system(size: 12, weight: .medium))\
+        .foregroundStyle(isActive ? Color.white : Color.primary)\
+        .padding(.horizontal, 8)\
+        .padding(.vertical, 4)\
+        .background(isActive ? Color.accentColor : Color.clear, in: RoundedRectangle(cornerRadius: 6))\
+    \}\
+\
+    private var widthControl: some View \{\
+        HStack(spacing: 6) \{\
+            Slider(value: widthBinding, in: Self.widthRange, onEditingChanged: \{ isEditing in\
+                if !isEditing \{ hasRegisteredWidthUndoThisSession = false \}\
+            \})\
+            .frame(width: 90)\
+            Text(commonWidth.map \{ "\\(Int($0))pt" \} ?? "\'97")\
+                .font(.system(size: 11))\
+                .foregroundStyle(.secondary)\
+                .monospacedDigit()\
+                .frame(width: 28, alignment: .leading)\
+        \}\
+    \}\
+\
+    /// Writes straight to every selected arrow on each slider tick \'97 same\
+    /// live-update-with-grouped-undo pattern as Crop-Resize (NodeView) and\
+    /// the text/shape autosave paths: after the first tick of a drag opens\
+    /// a real undo registration, every subsequent tick in that same drag\
+    /// suppresses registration (disableUndoRegistration/enableUndoRegistration,\
+    /// never nil-ing modelContext.undoManager itself \'97 see BUGS.md Session 2\
+    /// Vague 1 #1 for why that distinction matters) so the whole drag still\
+    /// undoes in one step. onEditingChanged above resets the flag when the\
+    /// drag ends, so the *next* drag starts its own fresh undo entry.\
+    private var widthBinding: Binding<Double> \{\
+        Binding(\
+            get: \{ commonWidth ?? averageWidth \},\
+            set: \{ newValue in\
+                if hasRegisteredWidthUndoThisSession \{\
+                    modelContext.undoManager?.disableUndoRegistration()\
+                    for arrow in arrows \{ arrow.arrowStrokeWidth = newValue \}\
+                    modelContext.undoManager?.enableUndoRegistration()\
+                \} else \{\
+                    for arrow in arrows \{ arrow.arrowStrokeWidth = newValue \}\
+                    hasRegisteredWidthUndoThisSession = true\
+                \}\
+                try? modelContext.save()\
+            \}\
+        )\
+    \}\
+\}\
+\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\qc\partightenfactor0
+
+\f0\b\fs96 \cf2 CONTENT VIEW.SWIFT CODE:
+\f1\b0\fs28 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 \
+//\
+//  ContentView.swift\
+//  DONE\
+//\
+//  Created by Samy Abbas on 28/07/2026.\
+//\
+\
+import SwiftUI\
+import SwiftData\
+import UniformTypeIdentifiers\
+import ImageIO\
+\
+struct ContentView: View \{\
+    @State private var canvasViewModel = CanvasViewModel()\
+    @Environment(\\.modelContext) private var modelContext\
+    @Environment(\\.undoManager) private var undoManager\
+    @Environment(\\.boardURL) private var boardURL\
+    @Query(sort: \\BoardNode.zIndex) private var nodes: [BoardNode]\
+\
+    // The canvas otherwise has no persistent keyboard focus target: the only\
+    // other @FocusState in the app is the text note's TextEditor, which only\
+    // holds focus while actively editing. Without this, .onDeleteCommand and\
+    // the TextEditor's .onExitCommand have nothing reliable in the responder\
+    // chain to route to once that TextEditor engages and resigns focus (or\
+    // even before it ever does) \'97 Delete/Backspace/Escape silently no-op with\
+    // a system beep instead of being handled. Diagnosed for BUGS.md Vague 4 #1.\
+    @FocusState private var isCanvasFocused: Bool\
+\
+    var body: some View \{\
+        CanvasView(\
+            viewModel: canvasViewModel,\
+            contentBounds: contentBounds,\
+            onBackgroundDoubleClick: createTextNote,\
+            onBackgroundClick: \{ canvasViewModel.deselectAll() \},\
+            onMarqueeSelect: handleMarqueeSelect,\
+            onShapeCreate: createShapeNode,\
+            onArrowCreate: createArrowNode,\
+            onDropFile: handleDrop,\
+            onCropCancel: \{ canvasViewModel.cancelCropping() \},\
+            onCropSave: saveCrop\
+        ) \{\
+            ForEach(nodes) \{ node in\
+                if node.kind == .arrow \{\
+                    ArrowNodeView(node: node, canvas: canvasViewModel, onInteract: \{\
+                        bringToFront(node)\
+                    \}, onGroupDragEnd: \{ delta in\
+                        commitGroupDrag(by: delta)\
+                    \})\
+                \} else \{\
+                    NodeView(node: node, canvas: canvasViewModel, onInteract: \{\
+                        bringToFront(node)\
+                    \}, onGroupDragEnd: \{ delta in\
+                        commitGroupDrag(by: delta)\
+                    \})\
+                \}\
+            \}\
+        \}\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs24 \cf2 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec13  .\strokec17 overlay\strokec15 (\strokec17 alignment\strokec15 :\strokec13  .topLeading\strokec15 ) \{\strokec13 \
+\pard\pardeftab720\partightenfactor0
+\cf2 \strokec12             // Arrow Style Panel (Phase 3 step 3/6): only while the whole\strokec13 \
+\strokec12             // selection is Arrow Nodes \'97 mirrors how the Resize Handle/Crop\strokec13 \
+\strokec12             // Action Bar etc. are only ever shown for the kind(s) they\strokec13 \
+\strokec12             // actually apply to.\strokec13 \
+\strokec14             if let\strokec13  position \strokec15 =\strokec13  arrowStylePanelPosition \strokec15 \{\strokec13 \
+\pard\pardeftab720\partightenfactor0
+\cf2 \strokec17                 ArrowStylePanel\strokec15 (\strokec17 arrows\strokec15 :\strokec13  selectedArrowNodes\strokec15 )\strokec13 \
+                    .\strokec17 position\strokec15 (\strokec13 position\strokec15 )\strokec13 \
+\pard\pardeftab720\partightenfactor0
+\cf2 \strokec15             \}\strokec13 \
+\strokec15         \}\strokec13 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f1\fs28 \cf2 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+        .ignoresSafeArea()\
+        .focusable()\
+        // Without this, macOS draws (and, while the window is key, keeps\
+        // redrawing on every view update \'97 including every pan tick, since\
+        // panning changes viewModel.offset) the default system focus ring\
+        // around this view, which covers the whole canvas. Inactive windows\
+        // never show a focus ring at all, which is why panning was only\
+        // choppy while DONE was the active window. Diagnosed for BUGS.md\
+        // Vague 5 #1 \'97 this .focusable() was added in Vague 4 #1 and the\
+        // timing lines up exactly with when the choppiness was first\
+        // reported. Keyboard focus/responder-chain behavior (Delete/Escape)\
+        // is unaffected; only the visual ring is suppressed.\
+        .focusEffectDisabled()\
+        .focused($isCanvasFocused)\
+        .onDeleteCommand(perform: deleteSelectedNodes)\
+        // A newly-created shape stays selected until the user clicks elsewhere\
+        // or presses Escape (Phase 2 #2) \'97 deselecting is otherwise not tied\
+        // to any existing command. Escape during a Crop Tool session instead\
+        // has the same effect as Cancel (discard the draft, keep the node\
+        // selected), per spec \'97 not a full deselect (BUGS.md Vague 10 #4).\
+        .onExitCommand \{\
+            if canvasViewModel.cropSession != nil \{\
+                canvasViewModel.cancelCropping()\
+            \} else \{\
+                canvasViewModel.deselectAll()\
+            \}\
+        \}\
+        .onAppear \{\
+            connectUndoManager()\
+            isCanvasFocused = true\
+        \}\
+        .onChange(of: undoManager) \{ _, _ in connectUndoManager() \}\
+        // Restore canvas focus whenever text-editing ends, however it ends\
+        // (Escape, clicking elsewhere, deleting the node) \'97 the TextEditor is\
+        // the only other thing in the app that ever takes focus away.\
+        .onChange(of: canvasViewModel.editingNodeID) \{ _, newValue in\
+            if newValue == nil \{\
+                isCanvasFocused = true\
+\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\qc\partightenfactor0
+
+\f0\b\fs96 \cf2 CANVA VIEW.SWIFT\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f1\b0\fs28 \cf2 \
+    // Click-drag on empty canvas is either Marquee Selection or shape creation,\
+    // depending on which tool is armed (Phase 2 #2) \'97 mutually exclusive, so\
+    // one DragGesture branches rather than attaching two competing ones.\
+    private var backgroundDragGesture: some Gesture \{\
+        DragGesture(minimumDistance: 2, coordinateSpace: .local)\
+            .onChanged \{ value in\
+                if case .shape = viewModel.activeTool \{\
+                    shapeDragStart = value.startLocation\
+                    shapeDragCurrent = value.location\
+                \} else if viewModel.activeTool == .arrow \{\
+                    arrowDragStart = value.startLocation\
+                    
+\f2\fs24 \cf3 \cb4 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec3     // Anchor Point \cb8 / Arrow Connection \cb4 snap (Phase 3 \cb8 steps\cf5 \cb4 \strokec5 \
+\pard\pardeftab720\partightenfactor0
+\cf3 \cb4 \strokec3                     // \cb8 4/6, 5/6) applies to the \cb4 creation drag's end point \'97\cf5 \cb4 \strokec5 \
+\cf3 \cb4 \strokec3                     // \cb8 the one point actually \cb4 moving with the cursor here \'97\cf5 \cb4 \strokec5 \
+\cf3 \cb4 \strokec3                     // \cb8 same as handle A/B on an existing\cb4  arrow\cb8 . `excluding:\cf5 \cb4 \strokec5 \
+\cf3 \cb4 \strokec3                     // \cb8 nil` since the new arrow \cb4 isn't a Node yet, so there's\cf5 \cb4 \strokec5 \
+\cf3 \cb4 \strokec3                     // \cb8 nothing of its own to \cb4 exclude from candidates.\cb8  Only\cf5 \cb4 \strokec5 \
+\cf3 \cb4 \strokec3                     // the live preview position matters mid-drag \'97 the\cf5 \cb4 \strokec5 \
+\cf3 \cb4 \strokec3                     // connection itself (if any) is only read at onEnded.\cf5 \cb4 \strokec5 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f1\fs28 \cf2 \cb1 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+                    let rawCanvasEnd = viewModel.canvasPoint(fromScreen: value.location)\
+                    
+\f2\fs24 \cf6 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec6 let\cf5 \strokec5  snappedCanvasEnd \cf7 \strokec7 =\cf5 \strokec5  AnchorPointFinder.\cf9 \strokec9 snappedEndpoint\cf7 \strokec7 (\cf9 \strokec9 for\cf7 \strokec7 :\cf5 \strokec5  rawCanvasEnd, \cf9 \strokec9 excluding\cf7 \strokec7 :\cf11 \strokec11  nil\cf5 \strokec5 , \cf9 \strokec9 allNodes\cf7 \strokec7 :\cf5 \strokec5  allNodes, \cf9 \strokec9 canvas\cf7 \strokec7 :\cf5 \strokec5  viewModel\cf7 \strokec7 )\cf5 \cb8 \strokec5 .point
+\f1\fs28 \cf2 \cb1 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+                    arrowDragCurrent = viewModel.screenPoint(fromCanvas: snappedCanvasEnd)\
+                \} else \{\
+                    marqueeGestureChanged(value)\
+                \}\
+            \}\
+            .onEnded \{ value in\
+                if case .shape(let shapeType) = viewModel.activeTool \{\
+                    let screenRect = Self.shapeDragRect(from: value.startLocation, to: value.location)\
+                    let corner1 = viewModel.canvasPoint(fromScreen: CGPoint(x: screenRect.minX, y: screenRect.minY))\
+                    let corner2 = viewModel.canvasPoint(fromScreen: CGPoint(x: screenRect.maxX, y: screenRect.maxY))\
+                    onShapeCreate?(shapeType, Self.normalizedRect(from: corner1, to: corner2))\
+                    shapeDragStart = nil\
+                    shapeDragCurrent = nil\
+                \} else if viewModel.activeTool == .arrow \{\
+                    let canvasStart = viewModel.canvasPoint(fromScreen: value.startLocation)\
+                    let rawCanvasEnd = viewModel.canvasPoint(fromScreen: value.location)\
+                    
+\f2\fs24 \cf3 \cb4 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec3  \cb8 // No cycle check needed here (unlike ArrowNodeView's\cf5 \cb4 \strokec5 \
+\pard\pardeftab720\partightenfactor0
+\cf3 \cb4 \strokec3                     \cb8 // commitConnection): the new arrow doesn't exist as a\cf5 \cb4 \strokec5 \
+\cf3 \cb4 \strokec3                     // Node yet, so nothing on the board can already depend\cf5 \cb4 \strokec5 \
+\cf3 \cb4 \strokec3                     // on it \'97 any connection made at creation is inherently\cf5 \cb4 \strokec5 \
+\cf3 \cb4 \strokec3                     // a fresh leaf, never part of an existing chain.\cf5 \cb4 \strokec5 \
+\cf6 \cb4 \strokec6                     let\cf5 \cb4 \strokec5  result \cf7 \strokec7 =\cf5 \strokec5  AnchorPointFinder.\cf9 \cb4 \strokec9 snappedEndpoint\cf7 \cb4 \strokec7 (\cf9 \cb4 \strokec9 for\cf7 \cb4 \strokec7 :\cf5 \strokec5  rawCanvasEnd, \cf9 \cb4 \strokec9 excluding\cf7 \cb4 \strokec7 :\cf11 \cb4 \strokec11  nil\cf5 \cb4 \strokec5 , \cf9 \cb4 \strokec9 allNodes\cf7 \cb4 \strokec7 :\cf5 \strokec5  allNodes, \cf9 \cb4 \strokec9 canvas\cf7 \cb4 \strokec7 :\cf5 \strokec5  viewModel\cf7 \strokec7 )\cf5 \strokec5 \
+                    onArrowCreate\cf7 \strokec7 ?(\cf5 \strokec5 canvasStart, result.point, result.connection\cf7 \strokec7 )\cf5 \strokec5 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f1\fs28 \cf2 \cb1 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+                    viewModel.anchorSnapState = nil\
+                    arrowDragStart = nil\
+                    arrowDragCurrent = nil\
+                \} else \{\
+                    marqueeGestureEnded(value)\
+                \}\
+            \}
+\f0\b \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\fs96 \cf2 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\qc\partightenfactor0
+\cf2 ARROW CONNECTION.SWIFT\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f1\b0\fs28 \cf2 //\
+//  ArrowConnection.swift\
+//  DONE\
+//\
+\
+import Foundation\
+import CoreGraphics\
+\
+/// Which point on an Arrow Node a connection targets (Phase 3 step 5/6,\
+/// GLOSSARY.md's Arrow Connection). Only .start/.end can be a connection's\
+/// *source* \'97 the Curve Handle is always driven by its own drag (Phase 3\
+/// step 2/6) and never itself connects outward \'97 but any of the three,\
+/// including .control, can be a connection's *target*.\
+enum ArrowPointRole: String, Codable \{\
+    case start\
+    case end\
+    case control\
+\}\
+\
+/// A persistent link from one Arrow Node's start or end point to another\
+/// Arrow Node's point (GLOSSARY.md's Arrow Connection). Stored on BoardNode\
+/// as two flattened Optional primitives (targetArrowID: UUID?,\
+/// targetPointRole: ArrowPointRole?) rather than this struct directly \'97\
+/// see BoardNode.startConnection's doc comment for why \'97 with this struct\
+/// as the ergonomic get/set surface bridging the two.\
+struct ArrowConnection: Equatable \{\
+    var targetArrowID: UUID\
+    var targetPoint: ArrowPointRole\
+\}\
+\
+/// Resolves an Arrow Node's *effective* start/end/curve-midpoint position,\
+/// chasing a chain of ArrowConnections recursively \'97 this recursion IS\
+/// topological resolution (a target is always fully resolved before its\
+/// dependent reads it, since the read only happens inside the recursive\
+/// call), so nothing is ever a frame stale, without needing a separate\
+/// graph-wide sort pass. Used by ArrowNodeView (to render/drag a connected\
+/// arrow), AnchorPointFinder (to offer another arrow's *current* points as\
+/// snap candidates), and ContentView's delete cascade (to freeze a\
+/// connected arrow's position before its target is removed).\
+enum ArrowConnectionResolver \{\
+    /// (nodeID, role) \'97 used as the cycle-guard's visited set, since the\
+    /// same node can legitimately appear twice for *different* roles in a\
+    /// non-cyclic graph (e.g. two arrows connected start-to-end and\
+    /// end-to-start); only revisiting the same (nodeID, role) pair means an\
+    /// actual cycle.\
+    private struct Key: Hashable \{\
+        var nodeID: UUID\
+        var role: ArrowPointRole\
+    \}\
+\
+    /// The current effective canvas-space position of `role` on the arrow\
+    /// `nodeID`. `nodesByID` must map every *arrow* node's id to itself\
+    /// (non-arrow nodes never participate in a connection chain).\
+    static func resolvedPoint(role: ArrowPointRole, of nodeID: UUID, nodesByID: [UUID: BoardNode]) -> CGPoint \{\
+        resolvedPoint(role: role, of: nodeID, nodesByID: nodesByID, visited: [])\
+    \}\
+\
+    private static func resolvedPoint(role: ArrowPointRole, of nodeID: UUID, nodesByID: [UUID: BoardNode], visited: Set<Key>) -> CGPoint \{\
+        guard let node = nodesByID[nodeID] else \{ return .zero \}\
+        let key = Key(nodeID: nodeID, role: role)\
+        // Cycle guard \'97 connection creation already refuses anything that\
+        // would form one, so this should be unreachable in practice; it's\
+        // here purely so a hand-edited or otherwise corrupted board can\
+        // never hang or crash, just fall back to the raw stored value.\
+        guard !visited.contains(key) else \{ return rawPoint(role: role, of: node) \}\
+        let visited = visited.union([key])\
+\
+        switch role \{\
+        case .start:\
+            guard let connection = node.startConnection else \{\
+                return CGPoint(x: node.arrowStartX, y: node.arrowStartY)\
+            \}\
+            return resolvedPoint(role: connection.targetPoint, of: connection.targetArrowID, nodesByID: nodesByID, visited: visited)\
+        case .end:\
+            guard let connection = node.endConnection else \{\
+                return CGPoint(x: node.arrowEndX, y: node.arrowEndY)\
+            \}\
+            return resolvedPoint(role: connection.targetPoint, of: connection.targetArrowID, nodesByID: nodesByID, visited: visited)\
+        case .control:\
+            // The Curve Handle's *visual* position (curveMidpoint, Phase 3\
+            // step 2/6) \'97 not the raw stored control point \'97 is what other\
+            // arrows actually see and target, per spec. It depends on this\
+            // same arrow's own resolved start/end, which may themselves be\
+            // connected elsewhere, so those are chased first.\
+            let start = resolvedPoint(role: .start, of: nodeID, nodesByID: nodesByID, visited: visited)\
+            let end = resolvedPoint(role: .end, of: nodeID, nodesByID: nodesByID, visited: visited)\
+            let control = CGPoint(x: node.arrowControlX, y: node.arrowControlY)\
+            return curveMidpoint(start: start, control: control, end: end)\
+        \}\
+    \}\
+\
+    private static func rawPoint(role: ArrowPointRole, of node: BoardNode) -> CGPoint \{\
+        switch role \{\
+        case .start: return CGPoint(x: node.arrowStartX, y: node.arrowStartY)\
+        case .end: return CGPoint(x: node.arrowEndX, y: node.arrowEndY)\
+        case .control: return CGPoint(x: node.arrowControlX, y: node.arrowControlY)\
+        \}\
+    \}\
+\
+    private static func curveMidpoint(start: CGPoint, control: CGPoint, end: CGPoint) -> CGPoint \{\
+        CGPoint(\
+            x: 0.25 * start.x + 0.5 * control.x + 0.25 * end.x,\
+            y: 0.25 * start.y + 0.5 * control.y + 0.25 * end.y\
+        )\
+    \}\
+\
+    /// Whether connecting `sourceNodeID`'s `sourceRole` point to\
+    /// `targetNodeID`'s `targetPoint` would create a cycle \'97 walks the\
+    /// chain of connections starting at the target; if it ever leads back\
+    /// to (sourceNodeID, sourceRole), the new connection would close a\
+    /// loop. Checked before a connection is ever created (BUGS.md/spec:\
+    /// refuse silently, no crash, just no snap) \'97 resolvedPoint's own\
+    /// cycle guard is a last-resort backstop, not a substitute for this.\
+    static func wouldCreateCycle(\
+        connectingSource sourceNodeID: UUID,\
+        sourceRole: ArrowPointRole,\
+        toTarget targetNodeID: UUID,\
+        targetPoint: ArrowPointRole,\
+        nodesByID: [UUID: BoardNode]\
+    ) -> Bool \{\
+        var currentNodeID = targetNodeID\
+        var currentRole = targetPoint\
+        // An acyclic chain can be at most as long as the number of arrows on\
+        // the board; capping the walk at that guarantees termination even\
+        // if some other bug ever let an actual cycle slip through.\
+        var stepsRemaining = nodesByID.count + 1\
+        while stepsRemaining > 0 \{\
+            if currentNodeID == sourceNodeID && currentRole == sourceRole \{\
+                return true\
+            \}\
+            guard let node = nodesByID[currentNodeID] else \{ return false \}\
+            let nextConnection: ArrowConnection?\
+            switch currentRole \{\
+            case .start: nextConnection = node.startConnection\
+            case .end: nextConnection = node.endConnection\
+            case .control: nextConnection = nil // .control is never itself a connection source\
+            \}\
+            guard let nextConnection else \{ return false \}\
+            currentNodeID = nextConnection.targetArrowID\
+            currentRole = nextConnection.targetPoint\
+            stepsRemaining -= 1\
+        \}\
+        return false\
+    \}\
+\}\
+
+\f0\b\fs96 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\qc\partightenfactor0
+\cf2 ANCHOR POINT.SWIFT\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f1\b0\fs28 \cf2 //\
+//  AnchorPoint.swift\
+//  DONE\
+//\
+\pard\pardeftab720\partightenfactor0
+
+\f2\fs24 \cf6 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec6 import\cf18 \strokec18  Foundation
+\f1\fs28 \cf2 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 import CoreGraphics\
+\
+/// A single cardinal-point snap candidate (Phase 3 step 4/6, GLOSSARY.md's\
+/// Anchor Point): one of a Node's 4 bounding-box midpoints, tagged with\
+/// which Node it belongs to.\
+struct AnchorPointCandidate \{\
+    
+\f2\fs24 \cf6 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec6  var\cf5 \strokec5  nodeID: \cf5 \cb8 \strokec5 UUID
+\f1\fs28 \cf2 \cb1 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+    var position: CGPoint\
+\}\
+\
+\
+/// Visual feedback state for an in-progress Anchor Point snap (shown while\
+/// dragging an Arrow's A/B endpoint, or the initial creation drag) \'97\
+/// CanvasViewModel.anchorSnapState. `candidatePoints` are the 4 cardinal\
+/// points of whichever single Node is within the display radius, to show\
+/// all 4; `closestPoint`, if non-nil, is the one that would actually be used\
+/// if the drag ended right now (shown visually distinguished from the other\
+/// 3) \'97 nil means still only within the display radius, not yet the tighter\
+/// hard-snap radius.\
+struct AnchorSnapState \{\
+    
+\f2\fs24 \cf6 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec6 var\cf5 \strokec5  nearbyNodeID: \cf5 \cb8 \strokec5 UUID
+\f1\fs28 \cf2 \cb1 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 \
+    var candidatePoints: [CGPoint]\
+    var closestPoint: CGPoint?\
+\}\
+\
+/// Finds and snaps to Anchor Points \'97 the 4 cardinal (top/bottom/left/right)\
+/// midpoints of a Node's bounding box \'97 for Arrow endpoint dragging (Phase 3\
+/// step 4/6). Used identically by ArrowNodeView (handle A/B on an existing\
+/// arrow) and CanvasView (the initial creation drag's end point), which is\
+/// why this lives as a standalone enum rather than inside either.\
+enum AnchorPointFinder \{\
+    /// Hard snap radius (canvas space, so it scales with zoom rather than\
+    /// staying a fixed screen size like a handle \'97 consistent with\
+    /// GridAttach.spacing, the other zoom-dependent proximity threshold\
+    /// already in the app): within this, the endpoint locks exactly onto\
+    /// the anchor point.\
+    static let snapRadius: CGFloat = 16\
+    /// Display radius: noticeably larger than snapRadius, so the 4 anchor\
+    /// points of a candidate Node appear a little before the hard snap\
+    /// actually engages, rather than the endpoint snapping abruptly with no\
+    /// visual lead-up.\
+    static let displayRadius: CGFloat = 28\
+\
+    /// The 4 cardinal points of a Node's bounding box, in canvas space.\
+    static func cardinalPoints(x: Double, y: Double, width: Double, height: Double) -> [CGPoint] \{\
+        [\
+            CGPoint(x: x + width / 2, y: y),              // top\
+            CGPoint(x: x + width / 2, y: y + height),      // bottom\
+            CGPoint(x: x, y: y + height / 2),              // left\
+            CGPoint(x: x + width, y: y + height / 2),      // right\
+        ]\
+    \}\
+\
+    /// Every candidate anchor point from `nodes`, excluding\
+    /// `excludingNodeID` (an arrow can't snap onto its own bounding box \'97\
+    /// nil during creation, since the new arrow isn't a Node yet) and any\
+    /// Node whose bounding box doesn't intersect `visibleRect` (performance:\
+    /// skip distance checks against anything off-screen).\
+    static func candidates(in nodes: [BoardNode], excluding excludingNodeID: UUID?, visibleRect: CGRect) -> [AnchorPointCandidate] \{\
+        nodes.flatMap \{ node -> [AnchorPointCandidate] in\
+            guard node.id != excludingNodeID else \{ return [] \}\
+            let rect = CGRect(x: node.x, y: node.y, width: node.width, height: node.height)\
+            guard rect.intersects(visibleRect) else \{ return [] \}\
+            return cardinalPoints(x: node.x, y: node.y, width: node.width, height: node.height)\
+                .map \{ AnchorPointCandidate(nodeID: node.id, position: $0) \}\
+        \}\
+    \}\
+\
+    /// The single closest candidate to `point` within `radius`, if any.\
+    static func closest(to point: CGPoint, among candidates: [AnchorPointCandidate], within radius: CGFloat) -> AnchorPointCandidate? \{\
+        var best: (candidate: AnchorPointCandidate, distanceSquared: CGFloat)?\
+        let radiusSquared = radius * radius\
+        for candidate in candidates \{\
+            let dx = candidate.position.x - point.x\
+            let dy = candidate.position.y - point.y\
+            let distanceSquared = dx * dx + dy * dy\
+            guard distanceSquared <= radiusSquared else \{ continue \}\
+            if best == nil || distanceSquared < best!.distanceSquared \{\
+                best = (candidate, distanceSquared)\
+            \}\
+        \}\
+        return best?.candidate\
+    \}\
+\
+    /// Checks `rawPoint` (canvas space, the endpoint's position before any\
+    /// snapping) against every visible Node's anchor points, updates\
+    /// `canvas.anchorSnapState` for the visual indicator, and returns the\
+    /// point the endpoint should actually use: the anchor point itself if\
+    /// one is within the hard snap radius, `rawPoint` unchanged otherwise.\
+    /// Anchor snap takes priority over Grid Attach \'97 callers should only\
+    /// fall back to grid snapping when this returns `rawPoint` unchanged.\
+    @MainActor\
+    static func snappedEndpoint(\
+        for rawPoint: CGPoint,\
+        excluding excludingNodeID: UUID?,\
+        allNodes: [BoardNode],\
+        canvas: CanvasViewModel\
+    ) -> CGPoint \{\
+        let candidates = candidates(in: allNodes, excluding: excludingNodeID, visibleRect: canvas.visibleCanvasRect)\
+        guard let nearest = closest(to: rawPoint, among: candidates, within: displayRadius) else \{\
+            canvas.anchorSnapState = nil\
+            return rawPoint\
+        \}\
+        let sameNodePoints = candidates.filter \{ $0.nodeID == nearest.nodeID \}.map(\\.position)\
+        let dx = nearest.position.x - rawPoint.x\
+        let dy = nearest.position.y - rawPoint.y\
+        let isHardMatch = (dx * dx + dy * dy) <= snapRadius * snapRadius\
+        canvas.anchorSnapState = AnchorSnapState(\
+            nearbyNodeID: nearest.nodeID,\
+            candidatePoints: sameNodePoints,\
+            closestPoint: isHardMatch ? nearest.position : nil\
+        )\
+        return isHardMatch ? nearest.position : rawPoint\
+    \}\
+\}\
+\
+\
+}

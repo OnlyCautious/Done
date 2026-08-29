@@ -1,0 +1,139 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2907
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica-Bold;\f1\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red230\green232\blue236;}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;\cssrgb\c92097\c92887\c94111;}
+{\*\listtable{\list\listtemplateid1\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat0\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid1\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li720\lin720 }{\listname ;}\listid1}
+{\list\listtemplateid2\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat0\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid101\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li720\lin720 }{\listname ;}\listid2}
+{\list\listtemplateid3\listhybrid{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{decimal\}}{\leveltext\leveltemplateid201\'01\'00;}{\levelnumbers\'01;}\fi-360\li720\lin720 }{\listname ;}\listid3}
+{\list\listtemplateid4\listhybrid{\listlevel\levelnfc0\levelnfcn0\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{decimal\}}{\leveltext\leveltemplateid301\'01\'00;}{\levelnumbers\'01;}\fi-360\li720\lin720 }{\listname ;}\listid4}
+{\list\listtemplateid5\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat0\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid401\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li720\lin720 }{\listname ;}\listid5}}
+{\*\listoverridetable{\listoverride\listid1\listoverridecount0\ls1}{\listoverride\listid2\listoverridecount0\ls2}{\listoverride\listid3\listoverridecount0\ls3}{\listoverride\listid4\listoverridecount0\ls4}{\listoverride\listid5\listoverridecount0\ls5}}
+\paperw11900\paperh16840\margl1440\margr1440\vieww35140\viewh18300\viewkind0
+\deftab720
+\pard\pardeftab720\sa321\partightenfactor0
+
+\f0\b\fs48 \cf2 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Done \'97 Project Brief & Build Spec\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f1\b0\fs24 \cf2 A living reference doc. Update it as decisions get made; paste the relevant sections into new Claude Code sessions instead of re-explaining the app from scratch.\
+\pard\pardeftab720\sa298\partightenfactor0
+
+\f0\b\fs36 \cf2 What this is\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f1\b0\fs24 \cf2 Done is a macOS whiteboard/moodboard app for laying out creative project ideas on an infinite canvas \'97 inspired by Milanote, built for a video production workflow. Local-first, no subscription, no clutter.\
+\pard\pardeftab720\sa298\partightenfactor0
+
+\f0\b\fs36 \cf2 Core principles\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
+\ls1\ilvl0
+\f1\b0\fs24 \cf2 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Local-first: everything works offline, no account, no internet dependency\
+\ls1\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Minimal UI: blank-slate canvas, Apple-style visual language\
+\ls1\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Dark & light mode, both fully supported from the start\
+\pard\pardeftab720\sa298\partightenfactor0
+
+\f0\b\fs36 \cf2 Why this exists\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f1\b0\fs24 \cf2 Milanote is subscription-based. ClickUp was tried as an alternative but its UI feels busy/cluttered compared to Milanote's polish. Done aims for Milanote's simplicity without the subscription, owned locally, with iCloud sync as a later addition for iPhone pairing.\
+\pard\pardeftab720\sa298\partightenfactor0
+
+\f0\b\fs36 \cf2 Tech decisions (locked)\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
+\ls2\ilvl0
+\f1\b0\fs24 \cf2 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 SwiftUI for the app shell and panels; a 
+\fs26 Canvas
+\fs24 /
+\fs26 NSView
+\fs24 -backed layer for the infinite board itself (performance with many objects)\
+\ls2\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 SwiftData for board structure (nodes, positions, connections); image/asset files stored separately in an app-managed folder, referenced by relative path \'97 the board is a document package (folder), not one flat file. This keeps a clean path to iCloud/CloudKit sync later.\
+\ls2\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 UndoManager wired in from the first feature, not retrofitted later \'97 every action (create/move/resize/delete) should be an undoable command\
+\ls2\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Git, initialized before any code was written; commit after each working milestone\
+\pard\pardeftab720\sa298\partightenfactor0
+
+\f0\b\fs36 \cf2 MVP scope \'97 Phase 1\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
+\ls3\ilvl0
+\f1\b0\fs24 \cf2 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	1	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Infinite pannable, zoomable canvas\
+\ls3\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	2	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Text notes: create, move, edit, delete\
+\ls3\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	3	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Images: drag in from Finder, move, resize, delete (crop comes later)\
+\ls3\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	4	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Save/load a board to local disk (the document package format above)\
+\ls3\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	5	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Light/dark mode, following system appearance\
+\ls3\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	6	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Undo/redo for all of the above\
+\pard\pardeftab720\sa240\partightenfactor0
+\cf2 Explicitly not in Phase 1: arrows, shapes, drawing tools, color palette tool, hyperlinks/embeds, custom font picker, iCloud.\
+\pard\pardeftab720\sa298\partightenfactor0
+
+\f0\b\fs36 \cf2 Full feature roadmap (post-MVP, build order)\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
+\ls4\ilvl0
+\f1\b0\fs24 \cf2 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	1	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Shapes with embedded text\
+\ls4\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	2	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Arrows \'97 straight & curved, dotted/solid, variable width slider\
+\ls4\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	3	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Local font picker (any installed font)\
+\ls4\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	4	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Color palette tool \'97 circle/rectangle swatches, RGB/HEX toggle\
+\ls4\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	5	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Image captions \'97 double-click adds a text box glued to the bottom\
+\ls4\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	6	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Hyperlinks + embedded YouTube video support (likely via 
+\fs26 WKWebView
+\fs24 )\
+\ls4\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	7	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Drawing tool \'97 3 pen styles (Marker/Pastel/Pen), color + width\
+\ls4\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	8	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Floating bottom toolbar with drop shadow (UI chrome pass)\
+\ls4\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	9	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 iCloud sync, paired iPhone use (separate phase, after local version is stable)\
+\pard\pardeftab720\sa298\partightenfactor0
+
+\f0\b\fs36 \cf2 Data model sketch\
+\pard\pardeftab720\partightenfactor0
+
+\f1\b0\fs24 \cf2 \
+\strokec3 Board\
+  id, name, createdAt\
+  nodes: [Node]\
+\
+Node (base)\
+  id, position (x, y), size, zIndex\
+\
+TextNote: Node + content, font, color\
+ImageNode: Node + assetPath, cropRect\
+// more Node subtypes added as each feature is built\
+\pard\pardeftab720\sa298\partightenfactor0
+
+\f0\b\fs36 \cf2 \strokec2 Design tokens\
+\pard\pardeftab720\sa240\partightenfactor0
+
+\f1\b0\fs24 \cf2 To fill in after the Figma / Claude Design pass \'97 reference these by name in future prompts instead of re-describing the look each time.\
+\pard\tx220\tx720\pardeftab720\li720\fi-720\partightenfactor0
+\ls5\ilvl0\cf2 \kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Corner radius:\
+\ls5\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Spacing scale:\
+\ls5\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Colors (light):\
+\ls5\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Colors (dark):\
+\ls5\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Fonts:\
+\ls5\ilvl0\kerning1\expnd0\expndtw0 \outl0\strokewidth0 {\listtext	\uc0\u8226 	}\expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 Toolbar shadow:\
+}
