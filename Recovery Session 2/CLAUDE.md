@@ -21,6 +21,7 @@ Pour le détail complet des fonctionnalités et de la roadmap : voir SPEC.md. Po
 
 - Build via Xcode (⌘B), pas de commande CLI configurée pour l'instant.
 - **Committer après chaque item/fonctionnalité terminé**, jamais en un seul gros commit à la fin.
+- **Pousser (`git push`) chaque commit vers `origin/main` immédiatement après l'avoir créé** — ne jamais laisser de commits seulement locaux entre deux sessions, pour éviter de reperdre du travail si la copie de travail est à nouveau perdue.
 - Après chaque item significatif, **expliquer brièvement ce qui a été fait et pourquoi** avant de passer au suivant.
 - Ne jamais implémenter une fonctionnalité de la roadmap qui est hors du scope explicitement demandé dans le prompt en cours.
 
